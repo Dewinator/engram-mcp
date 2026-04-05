@@ -141,7 +141,7 @@ async function main() {
         content,
         category,
         tags: [name],
-        embedding: JSON.stringify(embedding),
+        embedding,
         metadata: { imported_from: file, original_name: name },
         source: file,
       });

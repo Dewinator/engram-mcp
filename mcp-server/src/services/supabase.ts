@@ -61,7 +61,7 @@ export class MemoryService {
         content: input.content,
         category: input.category ?? "general",
         tags: input.tags ?? [],
-        embedding: JSON.stringify(embedding),
+        embedding,
         metadata: input.metadata ?? {},
         source: input.source ?? null,
       })
@@ -81,7 +81,7 @@ export class MemoryService {
     const queryEmbedding = await this.embeddings.embed(query);
 
     const { data, error } = await this.db.rpc("match_memories", {
-      query_embedding: JSON.stringify(queryEmbedding),
+      query_embedding: queryEmbedding,
       query_text: query,
       match_count: limit,
       filter_category: category ?? null,
@@ -110,9 +110,7 @@ export class MemoryService {
     const updates: Record<string, unknown> = {};
     if (input.content !== undefined) {
       updates.content = input.content;
-      updates.embedding = JSON.stringify(
-        await this.embeddings.embed(input.content)
-      );
+      updates.embedding = await this.embeddings.embed(input.content);
     }
     if (input.category !== undefined) updates.category = input.category;
     if (input.tags !== undefined) updates.tags = input.tags;

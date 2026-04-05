@@ -3,11 +3,11 @@ version: "3.8"
 services:
   # PostgreSQL with pgvector extension
   db:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:0.8.0-pg16
     container_name: vectormemory-db
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-54322}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-54322}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
@@ -26,12 +26,12 @@ services:
     container_name: vectormemory-rest
     restart: unless-stopped
     ports:
-      - "${API_PORT:-54321}:3000"
+      - "127.0.0.1:${API_PORT:-54321}:3000"
     environment:
       PGRST_DB_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vectormemory}
       PGRST_DB_SCHEMAS: public
-      PGRST_DB_ANON_ROLE: ${POSTGRES_USER:-postgres}
-      PGRST_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
     depends_on:
       db:
         condition: service_healthy
