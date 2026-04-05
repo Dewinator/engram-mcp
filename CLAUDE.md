@@ -27,14 +27,38 @@ Dieses Projekt ersetzt das dateibasierte Gedächtnissystem von **openClaw** (Mar
                                                └──────────────────────┘
 ```
 
+## Deployment-Modell
+
+Dieses Projekt ist ein **standalone MCP Server**, der als Plugin in eine bestehende openClaw-Installation eingebunden wird. Entwicklung findet hier auf GitHub statt — Installation auf dem Zielrechner (z.B. Mac M4 mit 16 GB RAM).
+
+```
+Zielrechner (Mac)
+├── openClaw                    ← bereits installiert
+├── Ollama                      ← brew install ollama
+├── Docker Desktop              ← für Supabase
+│   └── Supabase (PostgreSQL + pgvector)  ~500 MB RAM
+└── vectormemory-openclaw/      ← git clone + ./setup.sh
+    └── MCP Server (Node.js)
+```
+
+**Ressourcenbedarf:** ~1 GB RAM gesamt (Supabase ~500 MB, Ollama Embedding ~270 MB)
+
+### Installation auf Zielrechner
+```bash
+git clone https://github.com/Dewinator/vectormemory-openclaw.git
+cd vectormemory-openclaw
+./setup.sh    # Prüft Abhängigkeiten, startet Supabase, baut MCP Server
+# → Gibt openClaw-Config zum Einfügen aus
+```
+
 ## Techstack
 
 | Komponente | Technologie | Zweck |
 |---|---|---|
 | **Vektordatenbank** | Supabase (self-hosted Docker) + pgvector | Speicherung & Suche von Embeddings |
-| **Embedding-Modell** | Lokales Modell via Ollama (z.B. `nomic-embed-text`) oder OpenAI `text-embedding-3-small` | Textumwandlung in Vektoren |
+| **Embedding-Modell** | Ollama lokal (`nomic-embed-text`, 768 Dim., ~270 MB RAM) | Textumwandlung in Vektoren (kostenlos, flat) |
 | **MCP Server** | Custom TypeScript MCP Server (`@modelcontextprotocol/sdk`) | Schnittstelle zwischen openClaw und Supabase |
-| **openClaw Integration** | Plugin/Skill oder TOOLS.md-Konfiguration | Einbindung des MCP Servers in openClaw |
+| **openClaw Integration** | MCP Server Eintrag in `settings.json` | Einbindung als Tool in openClaw |
 | **Sprache** | TypeScript (Node.js) | MCP Server, Migrations, Scripts |
 | **Containerisierung** | Docker Compose | Lokales Supabase-Hosting |
 
@@ -177,24 +201,29 @@ vectormemory-openclaw/
 
 ## Entwicklungsanweisungen
 
-### Voraussetzungen
-- Docker & Docker Compose
+### Voraussetzungen (Zielrechner)
+- macOS (Apple Silicon empfohlen, M1+)
+- Docker Desktop
 - Node.js >= 20
+- Ollama (`brew install ollama` + `ollama pull nomic-embed-text`)
 - openClaw installiert und konfiguriert
-- Optional: Ollama für lokale Embeddings
 
-### Setup
+### Setup (Zielrechner)
 ```bash
-# 1. Supabase starten
-cd docker && docker compose up -d
+# Einmalig:
+git clone https://github.com/Dewinator/vectormemory-openclaw.git
+cd vectormemory-openclaw
+./setup.sh    # Alles automatisch
 
-# 2. Migrationen ausführen
-cd ../scripts && bash migrate.sh
-
-# 3. MCP Server installieren & starten
-cd ../mcp-server && npm install && npm run build
-
-# 4. In openClaw konfigurieren (settings.json)
+# Dann in openClaw settings.json einfügen:
+# {
+#   "mcpServers": {
+#     "vector-memory": {
+#       "command": "node",
+#       "args": ["/pfad/zu/vectormemory-openclaw/mcp-server/dist/index.js"]
+#     }
+#   }
+# }
 ```
 
 ### Konventionen
