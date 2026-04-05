@@ -56,35 +56,55 @@ openClaw nutzt standardmäßig ein dreistufiges Memory-System:
 | `list_memories` | Erinnerungen nach Kategorie auflisten |
 | `import_markdown` | Bestehende Markdown-Memories importieren |
 
-## Meilensteine
+## Features
 
-1. **Infrastruktur** — Supabase lokal via Docker + pgvector + DB-Schema
-2. **MCP Server** — TypeScript MCP Server mit remember/recall/forget Tools
-3. **openClaw Integration** — MCP Server in openClaw registrieren & konfigurieren
-4. **Migration** — Bestehende Markdown-Memories nach Supabase importieren
-5. **Optimierung** — Index-Tuning, Caching, Monitoring
+- **Hybrid-Suche**: 70% Vektorähnlichkeit + 30% Volltextsuche (konfigurierbar)
+- **Deduplizierung**: Automatische Erkennung semantisch ähnlicher Einträge (>92% Ähnlichkeit)
+- **HNSW-Index**: Optimiert für schnelle Nearest-Neighbor-Suche
+- **Kategorie-System**: people, projects, topics, decisions, general
+- **Markdown-Import**: Bestehende openClaw-Memories migrieren mit Dry-Run-Modus
+- **Lokal & kostenlos**: Ollama Embeddings, kein API-Kosten
+
+## Voraussetzungen
+
+- **macOS** (Apple Silicon empfohlen, M1+) oder Linux
+- **Docker Desktop** — [docker.com](https://www.docker.com/products/docker-desktop/)
+- **Node.js >= 20** — [nodejs.org](https://nodejs.org/)
+- **Ollama** — `brew install ollama && ollama pull nomic-embed-text`
+- **openClaw** — [github.com/openclaw/openclaw](https://github.com/openclaw/openclaw)
+- **psql** — `brew install postgresql` (für Migrationen)
+
+**Ressourcenbedarf:** ~1 GB RAM (Supabase ~500 MB, Ollama Embedding ~270 MB)
 
 ## Schnellstart
 
 ```bash
-# Voraussetzungen: Docker, Node.js >= 20, openClaw
-
 # 1. Repo klonen
 git clone https://github.com/Dewinator/vectormemory-openclaw.git
 cd vectormemory-openclaw
 
-# 2. Supabase starten
-cp docker/.env.example docker/.env    # Secrets anpassen!
-cd docker && docker compose up -d
+# 2. Alles automatisch einrichten
+./scripts/setup.sh
+# → Prüft Abhängigkeiten
+# → Erstellt .env mit zufälligen Secrets
+# → Startet Supabase via Docker
+# → Führt alle Migrationen aus
+# → Baut den MCP Server
+# → Gibt die openClaw-Config aus
 
-# 3. Migrationen
-bash scripts/migrate.sh
+# 3. Config in openClaw einfügen (Pfad anpassen!)
+# Füge den ausgegebenen JSON-Block in deine openClaw settings.json ein
+```
 
-# 4. MCP Server
-cd mcp-server && npm install && npm run build
+### Bestehende Memories importieren
 
-# 5. In openClaw konfigurieren
-# → Siehe openclaw-config/settings.example.json
+```bash
+# Vorschau (dry run)
+npx tsx scripts/import-memories.ts ~/.openclaw/workspace/memory --dry-run
+
+# Import starten
+export SUPABASE_KEY=dein_jwt_secret
+npx tsx scripts/import-memories.ts ~/.openclaw/workspace/memory
 ```
 
 ## Projektstruktur

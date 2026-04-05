@@ -32,7 +32,27 @@ export class MemoryService {
     return this.healthy;
   }
 
+  /** Find near-duplicate memories by semantic similarity */
+  async findSimilar(
+    content: string,
+    threshold: number = 0.92
+  ): Promise<MemorySearchResult[]> {
+    const results = await this.search(content, undefined, 3, 1.0);
+    return results.filter((r) => r.similarity >= threshold);
+  }
+
   async create(input: CreateMemoryInput): Promise<Memory> {
+    // Check for near-duplicates before inserting
+    const duplicates = await this.findSimilar(input.content);
+    if (duplicates.length > 0) {
+      console.error(
+        `Skipped near-duplicate (similarity ${duplicates[0].similarity.toFixed(3)}) of existing memory ${duplicates[0].id}`
+      );
+      // Return existing memory instead of creating duplicate
+      const existing = await this.get(duplicates[0].id);
+      if (existing) return existing;
+    }
+
     const embedding = await this.embeddings.embed(input.content);
 
     const { data, error } = await this.db
