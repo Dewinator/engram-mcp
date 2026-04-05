@@ -29,52 +29,89 @@ const server = new McpServer({
   version: "0.1.0",
 });
 
+/** Wrap tool handlers with error handling — returns MCP error response instead of crashing */
+function withErrorHandling(
+  fn: (input: Record<string, unknown>) => Promise<{ content: { type: "text"; text: string }[] }>
+) {
+  return async (input: Record<string, unknown>) => {
+    try {
+      return await fn(input);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Tool error:", message);
+      return {
+        content: [{ type: "text" as const, text: `Error: ${message}` }],
+        isError: true,
+      };
+    }
+  };
+}
+
 server.tool(
   "remember",
   "Store a new memory with automatic embedding generation. Use for important facts, decisions, people info, or project details.",
   rememberSchema.shape,
-  async (input) => remember(memoryService, rememberSchema.parse(input))
+  withErrorHandling((input) => remember(memoryService, rememberSchema.parse(input)))
 );
 
 server.tool(
   "recall",
   "Search memories using semantic similarity and keyword matching. Returns the most relevant memories for a query.",
   recallSchema.shape,
-  async (input) => recall(memoryService, recallSchema.parse(input))
+  withErrorHandling((input) => recall(memoryService, recallSchema.parse(input)))
 );
 
 server.tool(
   "forget",
   "Delete a specific memory by its UUID.",
   forgetSchema.shape,
-  async (input) => forget(memoryService, forgetSchema.parse(input))
+  withErrorHandling((input) => forget(memoryService, forgetSchema.parse(input)))
 );
 
 server.tool(
   "update_memory",
   "Update an existing memory. If content changes, the embedding is automatically regenerated.",
   updateSchema.shape,
-  async (input) => update(memoryService, updateSchema.parse(input))
+  withErrorHandling((input) => update(memoryService, updateSchema.parse(input)))
 );
 
 server.tool(
   "list_memories",
   "List stored memories, optionally filtered by category. Returns most recent first.",
   listSchema.shape,
-  async (input) => list(memoryService, listSchema.parse(input))
+  withErrorHandling((input) => list(memoryService, listSchema.parse(input)))
 );
 
 server.tool(
   "import_markdown",
   "Import existing openClaw markdown memory files into the vector database. Supports dry_run mode.",
   importSchema.shape,
-  async (input) => importMarkdown(memoryService, importSchema.parse(input))
+  withErrorHandling((input) => importMarkdown(memoryService, importSchema.parse(input)))
 );
 
 async function main() {
+  // Verify Supabase is reachable before accepting connections
+  const dbHealthy = await memoryService.healthCheck();
+  if (!dbHealthy) {
+    console.error(
+      "WARNING: Supabase is not reachable at " + SUPABASE_URL +
+      ". Memory operations will fail until the database is available."
+    );
+  }
+
+  // Verify Ollama is reachable
+  try {
+    await embeddings.embed("health check");
+    console.error("Ollama embedding provider: OK");
+  } catch (err) {
+    console.error(
+      "WARNING: Ollama is not reachable. Embedding generation will fail. " +
+      "Ensure Ollama is running: ollama serve"
+    );
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  // MCP server is now running — do not use console.log (corrupts stdio JSON-RPC)
   console.error("vector-memory MCP server started");
 }
 
