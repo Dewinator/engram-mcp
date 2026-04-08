@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vectormemory — dashboard</title>
+<style>
+  :root {
+    --bg:            #0b0d10;
+    --bg-elev:       #14181d;
+    --bg-elev-2:     #1b2027;
+    --border:        #232a33;
+    --text:          #e6e9ef;
+    --text-dim:      #8a94a6;
+    --text-faint:    #5a6473;
+    --accent:        #7aa2f7;
+    --accent-soft:   #2a3a5a;
+    --good:          #9ece6a;
+    --warn:          #e0af68;
+    --bad:           #f7768e;
+    --shadow:        0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.35);
+    --radius:        12px;
+    --radius-sm:     8px;
+    --mono:          ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans:          -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+  }
+  :root[data-theme="light"] {
+    --bg:            #f6f7f9;
+    --bg-elev:       #ffffff;
+    --bg-elev-2:     #f0f2f5;
+    --border:        #e3e6eb;
+    --text:          #181c22;
+    --text-dim:      #5b6573;
+    --text-faint:    #98a1ad;
+    --accent:        #3b6cd9;
+    --accent-soft:   #dde6fa;
+    --good:          #3b8a3b;
+    --warn:          #b07b1a;
+    --bad:           #c0364b;
+    --shadow:        0 1px 0 rgba(0,0,0,0.02), 0 4px 16px rgba(20,30,50,0.06);
+  }
+  *,*::before,*::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; padding: 32px 40px 64px; }
+  a { color: var(--accent); text-decoration: none; }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px; gap: 16px;
+  }
+  .brand { display: flex; flex-direction: column; gap: 4px; }
+  .brand h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .brand .sub { color: var(--text-dim); font-size: 13px; }
+  .controls { display: flex; align-items: center; gap: 8px; }
+  button.btn {
+    background: var(--bg-elev); color: var(--text); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: var(--radius-sm); font: inherit; font-size: 13px;
+    cursor: pointer; transition: background .15s, border-color .15s;
+  }
+  button.btn:hover { background: var(--bg-elev-2); border-color: var(--text-faint); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); display: inline-block; }
+  .status-dot.ok { background: var(--good); }
+  .status-dot.bad { background: var(--bad); }
+
+  .grid { display: grid; gap: 16px; }
+  .grid-kpi { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .grid-main { grid-template-columns: 2fr 1fr; margin-top: 16px; }
+  .grid-tables { grid-template-columns: 1fr 1fr; margin-top: 16px; }
+  @media (max-width: 1000px) { .grid-main, .grid-tables { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow);
+  }
+  .card h2 {
+    margin: 0 0 14px; font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+  }
+  .kpi .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 8px; }
+  .kpi .value { font-size: 32px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+  .kpi .hint { margin-top: 8px; font-size: 12px; color: var(--text-faint); }
+
+  .bars { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: grid; grid-template-columns: 140px 1fr 56px; align-items: center; gap: 12px; font-size: 13px; }
+  .bar-row .name { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-row .count { color: var(--text-dim); text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px; }
+  .bar-track { height: 8px; background: var(--bg-elev-2); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+
+  .histo { display: flex; align-items: flex-end; gap: 4px; height: 140px; padding: 4px 0; }
+  .histo-bar { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; opacity: 0.85; transition: opacity .15s; }
+  .histo-bar:hover { opacity: 1; }
+  .histo-axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-faint); margin-top: 6px; font-family: var(--mono); }
+
+  .stages { display: flex; gap: 8px; margin-top: 4px; }
+  .stage-pill {
+    flex: 1; padding: 12px 14px; border-radius: var(--radius-sm);
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+  }
+  .stage-pill .stage-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+  .stage-pill .stage-count { font-size: 22px; font-weight: 600; margin-top: 4px; line-height: 1; }
+
+  table.mem { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.mem th, table.mem td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.mem th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; }
+  table.mem td.content { color: var(--text); max-width: 360px; }
+  table.mem td.meta { color: var(--text-dim); white-space: nowrap; font-family: var(--mono); font-size: 12px; }
+  table.mem tr:last-child td { border-bottom: 0; }
+  .tag {
+    display: inline-block; padding: 2px 8px; margin-right: 4px; font-size: 11px;
+    background: var(--accent-soft); color: var(--accent); border-radius: 999px;
+  }
+  .stage-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--bg-elev-2); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+  .pinned { color: var(--warn); font-size: 11px; margin-left: 6px; }
+
+  .empty { color: var(--text-faint); font-size: 13px; padding: 24px 0; text-align: center; }
+  .err { color: var(--bad); font-size: 13px; padding: 12px 14px; border: 1px solid var(--bad); border-radius: var(--radius-sm); background: rgba(247,118,142,0.06); margin-bottom: 16px; }
+
+  footer { margin-top: 32px; color: var(--text-faint); font-size: 12px; text-align: center; }
+  footer code { font-family: var(--mono); }
+</style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>vectormemory</h1>
+      <div class="sub"><span class="status-dot" id="status"></span> <span id="status-text">verbinde…</span> &middot; <span id="generated">—</span></div>
+    </div>
+    <div class="controls">
+      <button class="btn" id="refresh">aktualisieren</button>
+      <button class="btn" id="theme">light / dark</button>
+    </div>
+  </header>
+
+  <div id="error-box"></div>
+
+  <section class="grid grid-kpi" id="kpis"></section>
+
+  <section class="grid grid-main">
+    <div class="card">
+      <h2>kategorien</h2>
+      <div class="bars" id="categories"></div>
+    </div>
+    <div class="card">
+      <h2>stadien</h2>
+      <div class="stages" id="stages"></div>
+      <h2 style="margin-top: 22px;">stärke-verteilung</h2>
+      <div class="histo" id="histo"></div>
+      <div class="histo-axis"><span>0.0</span><span>0.5</span><span>1.0</span></div>
+    </div>
+  </section>
+
+  <section class="grid grid-tables">
+    <div class="card">
+      <h2>themen / tags</h2>
+      <div class="bars" id="tags"></div>
+    </div>
+    <div class="card">
+      <h2>stärkste erinnerungen</h2>
+      <table class="mem" id="strongest-table"></table>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top: 16px;">
+    <h2>letzte einträge</h2>
+    <table class="mem" id="recent-table"></table>
+  </section>
+
+  <footer>
+    quelle: <code>POST /api/rpc/dashboard_stats</code> &middot; proxy: <code id="endpoint">scripts/dashboard-server.mjs</code>
+  </footer>
+
+<script>
+// Goes through scripts/dashboard-server.mjs which proxies to PostgREST
+// and injects the service_role JWT server-side. No secret in the browser.
+const ENDPOINT = "/api";
+
+const $ = (id) => document.getElementById(id);
+const fmt = new Intl.NumberFormat("de-DE");
+const fmt2 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function setStatus(ok, text) {
+  const dot = $("status");
+  dot.className = "status-dot " + (ok ? "ok" : "bad");
+  $("status-text").textContent = text;
+}
+
+function showError(msg) {
+  const box = $("error-box");
+  if (!msg) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="err">${msg}</div>`;
+}
+
+async function fetchStats() {
+  const r = await fetch(`${ENDPOINT}/rpc/dashboard_stats`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!r.ok) {
+    let body = "";
+    try { body = (await r.json()).message || ""; } catch {}
+    throw new Error(`HTTP ${r.status} ${r.statusText}${body ? " — " + body : ""}`);
+  }
+  return r.json();
+}
+
+function kpiCard(label, value, hint) {
+  return `<div class="card kpi">
+    <div class="label">${label}</div>
+    <div class="value">${value}</div>
+    ${hint ? `<div class="hint">${hint}</div>` : ""}
+  </div>`;
+}
+
+function renderKpis(d) {
+  const t = d.totals, l = d.links;
+  const html = [
+    kpiCard("neuronen (memories)", fmt.format(t.memories), `${fmt.format(t.with_embedding)} mit vektor`),
+    kpiCard("vektoren", fmt.format(t.with_embedding), `${t.memories ? Math.round(100 * t.with_embedding / t.memories) : 0}% abdeckung`),
+    kpiCard("beziehungen", fmt.format(l.count), `ø gewicht ${fmt2.format(l.avg_weight || 0)}`),
+    kpiCard("vergessen", fmt.format(d.forgotten), "soft-archiviert"),
+    kpiCard("ø stärke", fmt2.format(t.avg_strength || 0), `ø wichtigkeit ${fmt2.format(t.avg_importance || 0)}`),
+    kpiCard("zugriffe", fmt.format(t.total_access), `${fmt.format(t.total_useful)} davon nützlich`),
+  ].join("");
+  $("kpis").innerHTML = html;
+}
+
+function renderBars(elId, items, max) {
+  if (!items || items.length === 0) { $(elId).innerHTML = `<div class="empty">noch keine daten</div>`; return; }
+  const top = max || Math.max(...items.map(i => i.count));
+  $(elId).innerHTML = items.map(i => `
+    <div class="bar-row">
+      <div class="name" title="${escapeHtml(i.name)}">${escapeHtml(i.name)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width: ${top ? (100 * i.count / top) : 0}%"></div></div>
+      <div class="count">${fmt.format(i.count)}</div>
+    </div>
+  `).join("");
+}
+
+function renderStages(d) {
+  const t = d.totals;
+  const stages = [
+    { name: "episodisch", count: t.episodic },
+    { name: "semantisch", count: t.semantic },
+    { name: "archiviert", count: t.archived },
+  ];
+  $("stages").innerHTML = stages.map(s => `
+    <div class="stage-pill">
+      <div class="stage-name">${s.name}</div>
+      <div class="stage-count">${fmt.format(s.count)}</div>
+    </div>
+  `).join("");
+}
+
+function renderHistogram(buckets) {
+  const arr = new Array(10).fill(0);
+  (buckets || []).forEach(b => { arr[b.bucket] = b.count; });
+  const max = Math.max(1, ...arr);
+  $("histo").innerHTML = arr.map(c => `
+    <div class="histo-bar" title="${fmt.format(c)} memories" style="height: ${100 * c / max}%"></div>
+  `).join("");
+}
+
+function renderRecent(rows) {
+  if (!rows || rows.length === 0) { $("recent-table").innerHTML = `<tbody><tr><td class="empty">noch keine einträge</td></tr></tbody>`; return; }
+  $("recent-table").innerHTML = `
+    <thead><tr>
+      <th>inhalt</th><th>kategorie</th><th>tags</th><th>stadium</th><th>stärke</th><th>angelegt</th>
+    </tr></thead>
+    <tbody>${rows.map(r => `
+      <tr>
+        <td class="content">${escapeHtml(r.content)}${r.pinned ? '<span class="pinned">[pinned]</span>' : ''}</td>
+        <td class="meta">${escapeHtml(r.category)}</td>
+        <td>${(r.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</td>
+        <td><span class="stage-tag">${escapeHtml(r.stage)}</span></td>
+        <td class="meta">${fmt2.format(r.strength)}</td>
+        <td class="meta">${formatDate(r.created_at)}</td>
+      </tr>`).join("")}</tbody>`;
+}
+
+function renderStrongest(rows) {
+  if (!rows || rows.length === 0) { $("strongest-table").innerHTML = `<tbody><tr><td class="empty">noch keine einträge</td></tr></tbody>`; return; }
+  $("strongest-table").innerHTML = `
+    <thead><tr><th>inhalt</th><th>stärke</th><th>zugriffe</th></tr></thead>
+    <tbody>${rows.map(r => `
+      <tr>
+        <td class="content">${escapeHtml(r.content)}</td>
+        <td class="meta">${fmt2.format(r.strength)}</td>
+        <td class="meta">${fmt.format(r.access_count)}/${fmt.format(r.useful_count)}</td>
+      </tr>`).join("")}</tbody>`;
+}
+
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString("de-DE", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+async function load() {
+  showError("");
+  setStatus(false, "lade…");
+  try {
+    const d = await fetchStats();
+    renderKpis(d);
+    renderBars("categories", d.categories);
+    renderBars("tags", d.tags);
+    renderStages(d);
+    renderHistogram(d.strength_histogram);
+    renderRecent(d.recent);
+    renderStrongest(d.strongest);
+    $("generated").textContent = "stand " + formatDate(d.generated_at);
+    setStatus(true, "verbunden");
+  } catch (e) {
+    setStatus(false, "fehler");
+    showError("verbindung fehlgeschlagen: " + e.message + ". läuft <code>docker compose up</code>?");
+  }
+}
+
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem("vm-theme", t);
+}
+function initTheme() {
+  const saved = localStorage.getItem("vm-theme");
+  applyTheme(saved || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+}
+
+$("refresh").addEventListener("click", load);
+$("theme").addEventListener("click", () => {
+  applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+});
+
+initTheme();
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

@@ -13,6 +13,10 @@ export const updateSchema = z.object({
     .record(z.unknown())
     .optional()
     .describe("New metadata (replaces existing)"),
+  importance: z.number().min(0).max(1).optional(),
+  valence: z.number().min(-1).max(1).optional(),
+  arousal: z.number().min(0).max(1).optional(),
+  pinned: z.boolean().optional(),
 });
 
 export async function update(

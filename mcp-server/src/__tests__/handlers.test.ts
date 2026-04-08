@@ -24,9 +24,20 @@ function makeMemory(over: Partial<Memory> = {}): Memory {
     metadata: {},
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
+    strength: 1.0,
+    importance: 0.5,
+    access_count: 0,
+    valence: 0,
+    arousal: 0,
+    stage: "episodic",
+    pinned: false,
+    decay_tau_days: 30,
+    useful_count: 0,
     ...over,
   };
 }
+
+async function noop() {}
 
 class FakeService implements Partial<MemoryService> {
   created: CreateMemoryInput[] = [];
@@ -51,6 +62,10 @@ class FakeService implements Partial<MemoryService> {
     this.searched.push(query);
     return this.opts.searchResults ?? [];
   }
+
+  async touch(_ids: string[]): Promise<void> {}
+  async coactivate(_ids: string[]): Promise<void> {}
+  async spread(_ids: string[]): Promise<never[]> { return []; }
 
   async get(id: string): Promise<Memory | null> {
     return this.opts.getResult === undefined ? makeMemory({ id }) : this.opts.getResult;
@@ -78,7 +93,7 @@ test("remember returns id and category in text", async () => {
     category: "topics",
     tags: [],
   });
-  assert.match(res.content[0].text, /Remembered \(topics\)/);
+  assert.match(res.content[0].text, /Remembered \(topics/);
   assert.match(res.content[0].text, /the sky is blue/);
   assert.equal(svc.created.length, 1);
   assert.equal(svc.created[0].category, "topics");
@@ -101,6 +116,7 @@ test("recall returns 'no matching' when empty", async () => {
     query: "anything",
     limit: 10,
     vector_weight: 0.7,
+    spread: false,
   });
   assert.match(res.content[0].text, /No matching memories/);
 });
@@ -114,7 +130,15 @@ test("recall formats results with rank, score and id", async () => {
         category: "people",
         tags: ["alice"],
         metadata: {},
-        similarity: 0.873,
+        stage: "episodic",
+        strength: 1.0,
+        importance: 0.5,
+        access_count: 0,
+        pinned: false,
+        relevance: 0.9,
+        strength_now: 1.0,
+        salience: 1.0,
+        effective_score: 0.873,
         created_at: "2026-01-01T00:00:00Z",
       },
     ],
@@ -123,9 +147,10 @@ test("recall formats results with rank, score and id", async () => {
     query: "alice",
     limit: 10,
     vector_weight: 0.7,
+    spread: false,
   });
   assert.match(res.content[0].text, /Found 1 memories/);
-  assert.match(res.content[0].text, /1\. \[people\]/);
+  assert.match(res.content[0].text, /1\. \[people\//);
   assert.match(res.content[0].text, /0\.873/);
   assert.match(res.content[0].text, /alice/);
 });

@@ -10,6 +10,20 @@ import { forgetSchema, forget } from "./tools/forget.js";
 import { updateSchema, update } from "./tools/update.js";
 import { listSchema, list } from "./tools/list.js";
 import { importSchema, importMarkdown } from "./tools/import.js";
+import {
+  pinSchema,
+  pin,
+  introspectSchema,
+  introspect,
+  consolidateSchema,
+  consolidate,
+  forgetWeakSchema,
+  forgetWeak,
+  markUsefulSchema,
+  markUseful,
+  dedupSchema,
+  dedup,
+} from "./tools/cognitive.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "http://localhost:54321";
 const SUPABASE_KEY = process.env.SUPABASE_KEY ?? "";
@@ -80,6 +94,48 @@ server.tool(
   "List stored memories, optionally filtered by category. Returns most recent first.",
   listSchema.shape,
   withErrorHandling((input) => list(memoryService, listSchema.parse(input)))
+);
+
+server.tool(
+  "pin_memory",
+  "Pin (or unpin) a memory so it is never soft-forgotten and gets a salience boost in recall.",
+  pinSchema.shape,
+  withErrorHandling((input) => pin(memoryService, pinSchema.parse(input)))
+);
+
+server.tool(
+  "introspect_memory",
+  "Inspect the cognitive state of a memory: strength, decay, access count, salience.",
+  introspectSchema.shape,
+  withErrorHandling((input) => introspect(memoryService, introspectSchema.parse(input)))
+);
+
+server.tool(
+  "consolidate_memories",
+  "Promote frequently-rehearsed episodic memories into the semantic stage (slower decay).",
+  consolidateSchema.shape,
+  withErrorHandling((input) => consolidate(memoryService, consolidateSchema.parse(input)))
+);
+
+server.tool(
+  "mark_useful",
+  "Signal that a recalled memory was actually used in an answer. Strongest learning signal — boosts strength substantially and increments useful_count.",
+  markUsefulSchema.shape,
+  withErrorHandling((input) => markUseful(memoryService, markUsefulSchema.parse(input)))
+);
+
+server.tool(
+  "dedup_memories",
+  "Cluster near-duplicate memories and merge them into the strongest representative. Co-activation links are transferred. Originals are archived.",
+  dedupSchema.shape,
+  withErrorHandling((input) => dedup(memoryService, dedupSchema.parse(input)))
+);
+
+server.tool(
+  "forget_weak_memories",
+  "Soft-forget memories whose effective strength has decayed below a threshold. Originals are archived, not deleted.",
+  forgetWeakSchema.shape,
+  withErrorHandling((input) => forgetWeak(memoryService, forgetWeakSchema.parse(input)))
 );
 
 server.tool(

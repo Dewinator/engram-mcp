@@ -8,6 +8,17 @@ export interface Memory {
   source?: string;
   created_at: string;
   updated_at: string;
+  // Cognitive fields (migration 007)
+  strength: number;
+  importance: number;
+  access_count: number;
+  last_accessed_at?: string;
+  valence: number;
+  arousal: number;
+  stage: "episodic" | "semantic" | "archived";
+  pinned: boolean;
+  decay_tau_days: number;
+  useful_count: number;
 }
 
 export interface MemorySearchResult {
@@ -17,8 +28,25 @@ export interface MemorySearchResult {
   tags: string[];
   metadata: Record<string, unknown>;
   source?: string;
-  similarity: number;
+  stage: string;
+  strength: number;
+  importance: number;
+  access_count: number;
+  pinned: boolean;
+  relevance: number;
+  strength_now: number;
+  salience: number;
+  effective_score: number;
   created_at: string;
+  last_accessed_at?: string;
+}
+
+export interface SpreadResult {
+  id: string;
+  content: string;
+  category: string;
+  tags: string[];
+  link_strength: number;
 }
 
 export interface CreateMemoryInput {
@@ -27,6 +55,10 @@ export interface CreateMemoryInput {
   tags?: string[];
   metadata?: Record<string, unknown>;
   source?: string;
+  importance?: number;
+  valence?: number;
+  arousal?: number;
+  pinned?: boolean;
 }
 
 export interface UpdateMemoryInput {
@@ -35,6 +67,10 @@ export interface UpdateMemoryInput {
   category?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
+  importance?: number;
+  valence?: number;
+  arousal?: number;
+  pinned?: boolean;
 }
 
 export interface SearchMemoryInput {

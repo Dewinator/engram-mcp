@@ -22,7 +22,7 @@ test("rememberSchema rejects invalid category", () => {
 test("recallSchema defaults limit and vector_weight", () => {
   const parsed = recallSchema.parse({ query: "find me" });
   assert.equal(parsed.limit, 10);
-  assert.equal(parsed.vector_weight, 0.7);
+  assert.equal(parsed.vector_weight, 0.6);
 });
 
 test("recallSchema rejects vector_weight out of range", () => {
