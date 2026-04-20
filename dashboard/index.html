@@ -46,16 +46,32 @@
   }
   *,*::before,*::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
-  body { min-height: 100vh; padding: 28px 36px 56px; }
+  body { min-height: 100vh; display: grid; grid-template-columns: 240px 1fr; }
   a { color: var(--accent); text-decoration: none; }
+
+  .sidebar {
+    background: var(--bg-elev); border-right: 1px solid var(--border);
+    padding: 22px 14px 20px; display: flex; flex-direction: column; gap: 18px;
+    position: sticky; top: 0; align-self: start; height: 100vh;
+    overflow-y: auto; z-index: 30;
+  }
+  .main { padding: 20px 28px 48px; min-width: 0; }
+  .backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 20; }
+  .backdrop.open { display: block; }
+  .burger {
+    display: none; background: var(--bg-elev); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 6px 10px; font-size: 18px; cursor: pointer; line-height: 1;
+  }
 
   header.top {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 24px; gap: 16px;
+    margin-bottom: 24px; gap: 16px; flex-wrap: wrap;
   }
-  .brand { display: flex; flex-direction: column; gap: 4px; }
+  .brand { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .brand h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
   .brand .sub { color: var(--text-dim); font-size: 13px; }
+  .status-line { color: var(--text-dim); font-size: 13px; flex: 1; min-width: 0; }
   .controls { display: flex; align-items: center; gap: 8px; }
   button.btn {
     background: var(--bg-elev); color: var(--text); border: 1px solid var(--border);
@@ -72,7 +88,7 @@
   .grid-charts { grid-template-columns: 2fr 1fr; margin-top: 16px; }
   .grid-charts-2 { grid-template-columns: 1fr 1fr; margin-top: 16px; }
   .grid-tables { grid-template-columns: 1fr 1fr; margin-top: 16px; }
-  @media (max-width: 1100px) { .grid-charts, .grid-charts-2, .grid-tables { grid-template-columns: 1fr; } }
+  @media (max-width: 1280px) { .grid-charts, .grid-charts-2, .grid-tables { grid-template-columns: 1fr; } }
 
   .card {
     background: var(--bg-elev); border: 1px solid var(--border);
@@ -144,15 +160,16 @@
   footer { margin-top: 32px; color: var(--text-faint); font-size: 12px; text-align: center; }
   footer code { font-family: var(--mono); }
 
-  /* tabs */
-  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+  /* sidebar nav */
+  .tabs { display: flex; flex-direction: column; gap: 2px; }
   .tab {
-    background: transparent; border: 0; color: var(--text-dim); padding: 10px 16px;
-    font: inherit; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent;
-    margin-bottom: -1px; transition: color .15s, border-color .15s;
+    background: transparent; border: 0; color: var(--text-dim);
+    padding: 9px 12px; font: inherit; font-size: 13px; cursor: pointer;
+    text-align: left; border-radius: var(--radius-sm);
+    transition: background .15s, color .15s;
   }
-  .tab:hover { color: var(--text); }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover { background: var(--bg-elev-2); color: var(--text); }
+  .tab.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
@@ -308,14 +325,75 @@
     text-align: center;
   }
   .conflict-meta { margin-top: 10px; font-size: 11px; color: var(--text-faint); font-family: var(--mono); }
+
+  /* tables responsive wrapper — cards with tables scroll on small screens */
+  table.mem { min-width: 0; }
+
+  /* responsive layout */
+  @media (max-width: 900px) {
+    body { grid-template-columns: 1fr; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; width: 260px; height: 100vh;
+      transform: translateX(-100%); transition: transform .2s ease;
+      box-shadow: var(--shadow);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .burger { display: inline-flex; align-items: center; }
+    .main { padding: 14px 16px 40px; }
+    header.top { margin-bottom: 16px; gap: 10px; }
+    .card { padding: 14px 14px; overflow-x: auto; }
+    .card h2 { margin-bottom: 10px; }
+    table.mem { font-size: 12px; }
+    table.mem th, table.mem td { padding: 8px 6px; }
+    table.mem td.content { max-width: 260px; }
+    .grid-kpi { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .kpi .value { font-size: 24px; }
+    .bar-row { grid-template-columns: 100px 1fr 46px; gap: 8px; font-size: 12px; }
+    .conflict-row { grid-template-columns: 1fr; gap: 8px; }
+    .conflict-vs { text-align: left; }
+    .mood-disc { width: 140px; height: 140px; }
+    .narrate-card { padding: 20px 22px; font-size: 14px; }
+    footer { margin-top: 20px; }
+  }
+  @media (max-width: 520px) {
+    .grid-kpi { grid-template-columns: 1fr 1fr; }
+    .main { padding: 12px 12px 32px; }
+    .controls .btn { padding: 6px 10px; font-size: 12px; }
+    .brand h1 { font-size: 17px; }
+    table.mem td.content { max-width: 180px; }
+    .bar-row { grid-template-columns: 80px 1fr 40px; gap: 6px; }
+  }
 </style>
 </head>
 <body>
-  <header class="top">
+  <aside class="sidebar" id="sidebar">
     <div class="brand">
       <h1>vectormemory</h1>
-      <div class="sub"><span class="status-dot" id="status"></span> <span id="status-text">verbinde…</span> &middot; <span id="generated">—</span></div>
+      <div class="sub">openclaw dashboard</div>
     </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="memory">gedächtnis</button>
+      <button class="tab" data-tab="projects">projekte</button>
+      <button class="tab" data-tab="soul">seele</button>
+      <button class="tab" data-tab="regulator">regulator</button>
+      <button class="tab" data-tab="learning">lernen</button>
+      <button class="tab" data-tab="motivation">motivation</button>
+      <button class="tab" data-tab="identity">identität</button>
+      <button class="tab" data-tab="sleep">schlaf</button>
+      <button class="tab" data-tab="population">population</button>
+      <button class="tab" data-tab="tinder">tinder</button>
+      <button class="tab" data-tab="guard">guard</button>
+      <button class="tab" data-tab="emergence">emergenz</button>
+      <button class="tab" data-tab="federation">föderation</button>
+      <button class="tab" data-tab="neurochemistry">neurochemie</button>
+    </nav>
+  </aside>
+  <div class="backdrop" id="sidebar-backdrop"></div>
+
+  <main class="main">
+  <header class="top">
+    <button class="burger" id="burger" aria-label="menü">☰</button>
+    <div class="status-line"><span class="status-dot" id="status"></span> <span id="status-text">verbinde…</span> &middot; <span id="generated">—</span></div>
     <div class="controls">
       <button class="btn" id="refresh">aktualisieren</button>
       <button class="btn" id="theme">light / dark</button>
@@ -323,22 +401,6 @@
   </header>
 
   <div id="error-box"></div>
-
-  <nav class="tabs">
-    <button class="tab active" data-tab="memory">gedächtnis</button>
-    <button class="tab" data-tab="soul">seele</button>
-    <button class="tab" data-tab="regulator">regulator</button>
-    <button class="tab" data-tab="learning">lernen</button>
-    <button class="tab" data-tab="motivation">motivation</button>
-    <button class="tab" data-tab="identity">identität</button>
-    <button class="tab" data-tab="sleep">schlaf</button>
-    <button class="tab" data-tab="population">population</button>
-    <button class="tab" data-tab="tinder">tinder</button>
-    <button class="tab" data-tab="guard">guard</button>
-    <button class="tab" data-tab="emergence">emergenz</button>
-    <button class="tab" data-tab="federation">föderation</button>
-    <button class="tab" data-tab="neurochemistry">neurochemie</button>
-  </nav>
 
   <div class="tab-panel active" id="panel-memory">
   <section class="grid grid-kpi" id="kpis"></section>
@@ -843,9 +905,66 @@
     </section>
   </div><!-- /panel-neurochemistry -->
 
+  <div class="tab-panel" id="panel-projects">
+    <section class="card">
+      <h2>projekte</h2>
+      <div class="sub" style="margin-bottom:8px">
+        stabile handles für deine arbeitsschwerpunkte. memories, experiences, intentionen &amp;
+        lessons werden pro projekt gescoped, sobald der agent ein projekt als aktiv setzt.
+        klick <em>prompt kopieren</em> auf einer karte → der agent lädt seinen kontext via
+        <code>project_brief</code>.
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn" id="projects-new-btn">+ neues projekt</button>
+        <label class="sub" style="margin-left:8px">status:</label>
+        <select id="projects-filter">
+          <option value="">alle</option>
+          <option value="active" selected>aktiv</option>
+          <option value="paused">pausiert</option>
+          <option value="completed">abgeschlossen</option>
+          <option value="archived">archiviert</option>
+        </select>
+        <button class="btn" id="projects-refresh-btn">refresh</button>
+        <span id="projects-status" class="sub" style="margin-left:auto"></span>
+      </div>
+      <div id="projects-grid"></div>
+    </section>
+    <section class="card" id="project-detail-card" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2 id="project-detail-title">projekt</h2>
+        <button class="btn" id="project-detail-close">✕</button>
+      </div>
+      <div id="project-detail-body"></div>
+    </section>
+  </div><!-- /panel-projects -->
+
+  <!-- Create-project dialog -->
+  <div id="project-create-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:40;align-items:center;justify-content:center">
+    <div style="background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius);padding:20px;max-width:440px;width:92%;box-shadow:var(--shadow)">
+      <h2 style="margin:0 0 10px">neues projekt</h2>
+      <form id="project-create-form" style="display:flex;flex-direction:column;gap:10px">
+        <label class="sub">slug <span style="color:var(--text-faint)">(kebab-case, 2–64 zeichen)</span>
+          <input type="text" id="proj-slug" required pattern="[a-z0-9][a-z0-9-]{0,62}[a-z0-9]" style="width:100%;padding:6px 8px;background:var(--bg-elev-2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--mono);font-size:13px">
+        </label>
+        <label class="sub">name
+          <input type="text" id="proj-name" required style="width:100%;padding:6px 8px;background:var(--bg-elev-2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
+        </label>
+        <label class="sub">beschreibung
+          <textarea id="proj-desc" rows="3" style="width:100%;padding:6px 8px;background:var(--bg-elev-2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;resize:vertical"></textarea>
+        </label>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+          <button type="button" class="btn" id="project-create-cancel">abbrechen</button>
+          <button type="submit" class="btn" style="background:var(--accent);color:#fff;border-color:var(--accent)">anlegen</button>
+        </div>
+        <div id="project-create-err" style="color:var(--bad);font-size:12px;display:none"></div>
+      </form>
+    </div>
+  </div>
+
   <footer>
     quelle: <code>POST /api/rpc/dashboard_stats</code> &middot; proxy: <code>scripts/dashboard-server.mjs</code>
   </footer>
+  </main>
 
 <script>
 const ENDPOINT = "/api";
@@ -2783,12 +2902,250 @@ async function load() {
   }
 }
 
+// sidebar toggle (mobile)
+const _sidebar = document.getElementById("sidebar");
+const _backdrop = document.getElementById("sidebar-backdrop");
+const _burger = document.getElementById("burger");
+function closeSidebar() { _sidebar?.classList.remove("open"); _backdrop?.classList.remove("open"); }
+_burger?.addEventListener("click", () => {
+  _sidebar.classList.toggle("open");
+  _backdrop.classList.toggle("open");
+});
+_backdrop?.addEventListener("click", closeSidebar);
+
+// ===========================================================================
+// PROJECTS (migration 045)
+// ===========================================================================
+async function fetchProjects(status) {
+  const r = await fetch(`${ENDPOINT}/rpc/list_projects_with_activity`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_status: status || null }),
+  });
+  if (!r.ok) throw new Error(`projects: HTTP ${r.status}`);
+  return r.json();
+}
+async function fetchProjectBrief(slug) {
+  const r = await fetch(`${ENDPOINT}/rpc/project_brief`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_slug: slug }),
+  });
+  if (!r.ok) throw new Error(`project_brief: HTTP ${r.status}`);
+  return r.json();
+}
+async function createProject(slug, name, description) {
+  const r = await fetch(`${ENDPOINT}/projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Prefer": "return=representation" },
+    body: JSON.stringify({ slug, name, description }),
+  });
+  if (!r.ok) {
+    const body = await r.text().catch(() => "");
+    throw new Error(`create failed (${r.status}): ${body}`);
+  }
+  return r.json();
+}
+async function updateProjectStatusApi(slug, status) {
+  const r = await fetch(`${ENDPOINT}/projects?slug=eq.${encodeURIComponent(slug)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!r.ok) throw new Error(`status update failed: ${r.status}`);
+}
+
+const STATUS_BADGE_COLOR = {
+  active:    "var(--good)",
+  paused:    "var(--warn)",
+  completed: "var(--accent)",
+  archived:  "var(--text-faint)",
+};
+
+function renderProjectCard(p) {
+  const activity = p.last_activity ? formatDate(p.last_activity) : "—";
+  const color = STATUS_BADGE_COLOR[p.status] || "var(--text-faint)";
+  return `
+    <div class="card project-card" data-slug="${escapeHtml(p.slug)}" style="padding:14px 16px;cursor:pointer">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+        <div style="font-weight:600;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(p.name)}</div>
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${color};color:#000;font-weight:500">${p.status}</span>
+      </div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:8px">${escapeHtml(p.slug)}</div>
+      <div class="sub" style="font-size:12px;margin-bottom:10px;min-height:32px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(p.description || "(keine beschreibung)")}</div>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--text-dim);margin-bottom:10px;flex-wrap:wrap">
+        <span>mem ${fmt.format(p.memory_count || 0)}</span>
+        <span>exp ${fmt.format(p.experience_count || 0)}</span>
+        <span>offen ${fmt.format(p.open_intentions || 0)}</span>
+        <span>lessons ${fmt.format(p.lesson_count || 0)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-faint);margin-bottom:10px">zuletzt: ${activity}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn project-copy-btn" data-slug="${escapeHtml(p.slug)}" style="flex:1;font-size:12px">📋 prompt kopieren</button>
+        <button class="btn project-detail-btn" data-slug="${escapeHtml(p.slug)}" style="font-size:12px">details</button>
+      </div>
+    </div>`;
+}
+
+async function renderProjectsGrid() {
+  const grid = $("projects-grid");
+  const statusEl = $("projects-status");
+  const filter = $("projects-filter").value;
+  try {
+    statusEl.textContent = "lade…";
+    const rows = await fetchProjects(filter);
+    statusEl.textContent = rows.length + " projekt" + (rows.length === 1 ? "" : "e");
+    if (rows.length === 0) {
+      grid.innerHTML = `<div class="sub" style="text-align:center;padding:40px 0">keine projekte${filter ? " mit status '" + filter + "'" : " angelegt"}. klick <strong>+ neues projekt</strong>.</div>`;
+      return;
+    }
+    grid.style.display = "grid";
+    grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(280px, 1fr))";
+    grid.style.gap = "14px";
+    grid.innerHTML = rows.map(renderProjectCard).join("");
+  } catch (err) {
+    statusEl.textContent = "";
+    grid.innerHTML = `<div class="err">fehler beim laden: ${escapeHtml(err.message || String(err))}</div>`;
+  }
+}
+
+function copyProjectPrompt(slug) {
+  const prompt = `Arbeite am Projekt \`${slug}\`. Rufe zuerst project_brief("${slug}") auf, um den aktuellen Stand zu laden, dann set_active_project("${slug}") damit neue memories, experiences und intentionen auto-scoped werden. Fasse anschließend kurz zusammen, woran als nächstes gearbeitet werden sollte.`;
+  navigator.clipboard.writeText(prompt).then(() => {
+    const s = $("projects-status");
+    const prev = s.textContent;
+    s.textContent = "prompt für '" + slug + "' kopiert ✓";
+    setTimeout(() => { s.textContent = prev; }, 2400);
+  }).catch((err) => {
+    alert("copy fehlgeschlagen: " + err.message);
+  });
+}
+
+async function showProjectDetail(slug) {
+  const card = $("project-detail-card");
+  const body = $("project-detail-body");
+  const title = $("project-detail-title");
+  card.style.display = "";
+  body.innerHTML = `<div class="sub">lade brief für '${escapeHtml(slug)}'…</div>`;
+  title.textContent = "projekt: " + slug;
+  try {
+    const brief = await fetchProjectBrief(slug);
+    if (!brief.exists) {
+      body.innerHTML = `<div class="err">projekt '${escapeHtml(slug)}' nicht gefunden</div>`;
+      return;
+    }
+    const p = brief.project; const c = brief.counts;
+    const section = (title, items, renderItem) => {
+      if (!items || items.length === 0) return "";
+      return `<div style="margin-top:14px"><h3 style="margin:0 0 6px;font-size:12px;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.08em">${title}</h3>${items.map(renderItem).join("")}</div>`;
+    };
+    const ints = section("offene intentionen", brief.open_intentions, (i) => {
+      const prog = typeof i.progress === "number" ? `<span style="color:var(--text-faint);margin-left:6px">${Math.round(i.progress*100)}%</span>` : "";
+      return `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${escapeHtml(i.intention)} ${prog}</div>`;
+    });
+    const exps = section("letzte experiences", brief.recent_experiences, (e) => {
+      const out = e.outcome ? `<span style="font-size:11px;padding:1px 6px;border-radius:4px;background:var(--bg-elev-2);margin-right:6px">${e.outcome}</span>` : "";
+      return `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${out}${escapeHtml((e.summary||"").slice(0,200))}</div>`;
+    });
+    const mems = section("key memories", brief.key_memories, (m) => {
+      const pin = m.pinned ? "📌 " : "";
+      return `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${pin}<span style="color:var(--text-faint);font-size:11px">[${escapeHtml(m.category||"?")}]</span> ${escapeHtml((m.content||"").slice(0,220))}</div>`;
+    });
+    const lsns = section("top lessons", brief.top_lessons, (l) => {
+      return `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--text-faint);font-size:11px">n=${l.evidence_count}</span> ${escapeHtml((l.lesson||"").slice(0,260))}</div>`;
+    });
+    const statusSelect = `<select data-slug="${escapeHtml(p.slug)}" class="project-status-select">
+      ${["active","paused","completed","archived"].map(s => `<option value="${s}" ${p.status===s?"selected":""}>${s}</option>`).join("")}
+    </select>`;
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <code style="font-family:var(--mono);font-size:12px;color:var(--text-dim)">${escapeHtml(p.slug)}</code>
+        ${statusSelect}
+      </div>
+      <div style="font-size:13px;margin-bottom:8px">${escapeHtml(p.description || "(keine beschreibung)")}</div>
+      <div style="display:flex;gap:14px;font-size:12px;color:var(--text-dim);flex-wrap:wrap">
+        <span>memories: ${c.memories}</span>
+        <span>experiences: ${c.experiences}</span>
+        <span>offene intentionen: ${c.intentions_open}/${c.intentions_total}</span>
+        <span>lessons: ${c.lessons}</span>
+      </div>
+      ${ints}${exps}${mems}${lsns}
+    `;
+    title.textContent = p.name;
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    body.innerHTML = `<div class="err">fehler: ${escapeHtml(err.message || String(err))}</div>`;
+  }
+}
+
+// projects wiring (runs once DOMContentLoaded)
+document.addEventListener("DOMContentLoaded", () => {
+  const modal    = $("project-create-modal");
+  const form     = $("project-create-form");
+  const errEl    = $("project-create-err");
+  const openBtn  = $("projects-new-btn");
+  const cancelBt = $("project-create-cancel");
+  const filter   = $("projects-filter");
+  const refresh  = $("projects-refresh-btn");
+  const detail   = $("project-detail-card");
+  const closeBt  = $("project-detail-close");
+
+  if (!openBtn) return; // dashboard without the panel (shouldn't happen but safe)
+
+  openBtn.addEventListener("click", () => {
+    errEl.style.display = "none";
+    form.reset();
+    modal.style.display = "flex";
+    $("proj-slug").focus();
+  });
+  cancelBt.addEventListener("click", () => { modal.style.display = "none"; });
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.style.display = "none"; });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errEl.style.display = "none";
+    try {
+      await createProject($("proj-slug").value.trim(), $("proj-name").value.trim(), $("proj-desc").value.trim());
+      modal.style.display = "none";
+      renderProjectsGrid();
+    } catch (err) {
+      errEl.textContent = err.message || String(err);
+      errEl.style.display = "block";
+    }
+  });
+  filter.addEventListener("change", renderProjectsGrid);
+  refresh.addEventListener("click", renderProjectsGrid);
+  closeBt.addEventListener("click", () => { detail.style.display = "none"; });
+
+  document.addEventListener("click", (e) => {
+    const copyBtn = e.target.closest(".project-copy-btn");
+    if (copyBtn) { e.stopPropagation(); copyProjectPrompt(copyBtn.dataset.slug); return; }
+    const detailBtn = e.target.closest(".project-detail-btn");
+    if (detailBtn) { e.stopPropagation(); showProjectDetail(detailBtn.dataset.slug); return; }
+    const pcard = e.target.closest(".project-card");
+    if (pcard) { showProjectDetail(pcard.dataset.slug); return; }
+  });
+
+  document.addEventListener("change", async (e) => {
+    const sel = e.target.closest(".project-status-select");
+    if (!sel) return;
+    try {
+      await updateProjectStatusApi(sel.dataset.slug, sel.value);
+      renderProjectsGrid();
+    } catch (err) {
+      alert("status update fehlgeschlagen: " + err.message);
+    }
+  });
+});
+
 // tab switching
 document.querySelectorAll(".tab").forEach(btn => {
   btn.addEventListener("click", () => {
     const name = btn.dataset.tab;
     document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === btn));
     document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === "panel-" + name));
+    if (name === "projects") renderProjectsGrid();
+    closeSidebar();
+    window.scrollTo({ top: 0, behavior: "instant" });
   });
 });
 

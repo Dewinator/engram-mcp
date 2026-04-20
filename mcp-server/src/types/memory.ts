@@ -60,6 +60,7 @@ export interface CreateMemoryInput {
   arousal?: number;
   pinned?: boolean;
   decay_tau_days?: number;
+  project_id?: string | null;
 }
 
 export interface UpdateMemoryInput {

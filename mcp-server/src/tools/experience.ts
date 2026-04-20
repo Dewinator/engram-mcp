@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ExperienceService } from "../services/experiences.js";
 import type { NeurochemistryService, NeurochemEvent } from "../services/neurochemistry.js";
+import type { ProjectService } from "../services/projects.js";
 
 // ---------------------------------------------------------------------------
 // record_experience
@@ -53,15 +54,31 @@ export const recordExperienceSchema = z.object({
     .string()
     .optional()
     .describe('e.g. "user", "collaborator", "self"'),
+  project: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("Project slug to scope this experience to. Omit for agent's active project, null for global."),
 });
 
 export async function recordExperience(
   service: ExperienceService,
   neurochem: NeurochemistryService,
+  projects: ProjectService,
   genomeLabel: string,
+  agentLabel: string,
   input: z.infer<typeof recordExperienceSchema>
 ) {
   const { id, cross_links, intentions_touched, person_id } = await service.record(input);
+
+  const project_id = await projects.resolveScope(input.project, agentLabel);
+  if (project_id) {
+    try {
+      await projects.applyScopeToRow("experiences", id, project_id);
+    } catch (err) {
+      console.error("recordExperience: project-scope failed (non-fatal):", err);
+    }
+  }
   const notes: string[] = [];
   if (cross_links > 0)        notes.push(`↔ ${cross_links} memory link(s)`);
   if (intentions_touched > 0) notes.push(`→ advanced ${intentions_touched} intention(s)`);
@@ -282,18 +299,34 @@ export const recordLessonSchema = z.object({
     .optional()
     .default("general"),
   confidence: z.number().min(0).max(1).optional().default(0.6),
+  project: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("Project slug to scope this lesson to. Omit for agent's active project, null for global."),
 });
 
 export async function recordLesson(
   service: ExperienceService,
   neurochem: NeurochemistryService,
+  projects: ProjectService,
   genomeLabel: string,
+  agentLabel: string,
   input: z.infer<typeof recordLessonSchema>
 ) {
   const id = await service.recordLesson(input.lesson, input.source_ids, {
     category: input.category,
     confidence: input.confidence,
   });
+
+  const project_id = await projects.resolveScope(input.project, agentLabel);
+  if (project_id) {
+    try {
+      await projects.applyScopeToRow("lessons", id, project_id);
+    } catch (err) {
+      console.error("recordLesson: project-scope failed (non-fatal):", err);
+    }
+  }
   // Distilling a lesson is a small cognitive reward. We fire a mild
   // 'task_complete' with outcome scaled by confidence — prediction-error
   // stays small but positive. No arousal spike (intensity 0.5).

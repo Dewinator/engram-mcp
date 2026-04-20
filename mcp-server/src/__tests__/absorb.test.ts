@@ -4,7 +4,16 @@ import { absorb } from "../tools/absorb.js";
 import type { MemoryService } from "../services/supabase.js";
 import type { ExperienceService, RecordExperienceInput } from "../services/experiences.js";
 import type { AffectService, AffectEvent, AffectState } from "../services/affect.js";
+import type { ProjectService } from "../services/projects.js";
 import type { Memory, CreateMemoryInput } from "../types/memory.js";
+
+// Minimal fake — absorb only calls resolveScope + (conditionally) applyScopeToRow.
+class FakeProjectService implements Partial<ProjectService> {
+  async resolveScope(_slug: string | null | undefined, _agent: string): Promise<string | null> {
+    return null;
+  }
+  async applyScopeToRow(): Promise<void> { /* no-op */ }
+}
 
 const MEMORY_ID = "aaaaaaaa-1111-2222-3333-444444444444";
 const EXPERIENCE_ID = "bbbbbbbb-5555-6666-7777-888888888888";
@@ -79,10 +88,13 @@ async function run(
   const mem = new FakeMemoryService({ duplicate: opts.duplicate });
   const exp = new FakeExperienceService({ fail: opts.fail });
   const aff = new FakeAffectService();
+  const prj = new FakeProjectService();
   const res = await absorb(
     mem as unknown as MemoryService,
     exp as unknown as ExperienceService,
     aff as unknown as AffectService,
+    prj as unknown as ProjectService,
+    "main",
     { text, context: opts.context }
   );
   return { mem, exp, aff, res };

@@ -111,6 +111,7 @@ export class MemoryService {
         arousal,
         pinned: input.pinned ?? false,
         decay_tau_days,
+        project_id: input.project_id ?? null,
       })
       .select()
       .single();

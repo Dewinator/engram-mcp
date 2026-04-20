@@ -7,12 +7,21 @@ import { update } from "../tools/update.js";
 import { list } from "../tools/list.js";
 import type { MemoryService } from "../services/supabase.js";
 import type { AffectService, AffectEvent, AffectState } from "../services/affect.js";
+import type { ProjectService } from "../services/projects.js";
 import type {
   Memory,
   MemorySearchResult,
   CreateMemoryInput,
   UpdateMemoryInput,
 } from "../types/memory.js";
+
+class FakeProjectService implements Partial<ProjectService> {
+  async resolveScope(_slug: string | null | undefined, _agent: string): Promise<string | null> {
+    return null;
+  }
+  async applyScopeToRow(): Promise<void> { /* no-op */ }
+}
+const fakeProjects = new FakeProjectService();
 
 class FakeAffectService implements Partial<AffectService> {
   async apply(_e: AffectEvent, _i = 0.1): Promise<AffectState | null> { return null; }
@@ -100,7 +109,7 @@ class FakeService implements Partial<MemoryService> {
 
 test("remember returns id and category in text", async () => {
   const svc = new FakeService();
-  const res = await remember(svc as unknown as MemoryService, fakeAffect, {
+  const res = await remember(svc as unknown as MemoryService, fakeAffect, fakeProjects as unknown as ProjectService, "main", {
     content: "the sky is blue",
     category: "topics",
     tags: [],
@@ -114,7 +123,7 @@ test("remember returns id and category in text", async () => {
 test("remember truncates long content in output", async () => {
   const svc = new FakeService();
   const long = "x".repeat(200);
-  const res = await remember(svc as unknown as MemoryService, fakeAffect, {
+  const res = await remember(svc as unknown as MemoryService, fakeAffect, fakeProjects as unknown as ProjectService, "main", {
     content: long,
     category: "general",
     tags: [],

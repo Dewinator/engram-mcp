@@ -61,6 +61,17 @@ import {
 } from "./tools/soul.js";
 import { absorbSchema, absorb } from "./tools/absorb.js";
 import { digestSchema, digest } from "./tools/digest.js";
+import { findToolSchema, findTool } from "./tools/find_tool.js";
+import { ProjectService } from "./services/projects.js";
+import {
+  createProjectSchema, createProject,
+  listProjectsSchema, listProjects,
+  getProjectSchema, getProject,
+  projectBriefSchema, projectBrief,
+  setActiveProjectSchema, setActiveProject,
+  updateProjectStatusSchema, updateProjectStatus,
+  linkToProjectSchema, linkToProject,
+} from "./tools/projects.js";
 import { AffectService } from "./services/affect.js";
 import {
   getAffectSchema, getAffect,
@@ -164,6 +175,7 @@ const beliefService = new BeliefService(
 );
 const causalService = new CausalService(SUPABASE_URL, SUPABASE_KEY);
 const skillsService = new SkillsService(SUPABASE_URL, SUPABASE_KEY);
+const projectService = new ProjectService(SUPABASE_URL, SUPABASE_KEY);
 const motivationService = new MotivationService(
   SUPABASE_URL,
   SUPABASE_KEY,
@@ -288,14 +300,14 @@ server.tool(
   "remember",
   "Store a new memory with automatic embedding generation. Use for important facts, decisions, people info, or project details.",
   rememberSchema.shape,
-  withErrorHandling((input) => remember(memoryService, affectService, rememberSchema.parse(input)))
+  withErrorHandling((input) => remember(memoryService, affectService, projectService, AGENT_LABEL, rememberSchema.parse(input)))
 );
 
 server.tool(
   "absorb",
   "Low-friction learning: pass any text you picked up during conversation — a fact, preference, decision, person detail. The server auto-detects category, extracts tags, scores importance, checks for duplicates, and — when the text carries real emotion — ALSO auto-records a lightweight experience so the soul layer fills up organically without waiting for digest. USE THIS whenever you notice something worth remembering — don't wait to be asked.",
   absorbSchema.shape,
-  withErrorHandling((input) => absorb(memoryService, experienceService, affectService, absorbSchema.parse(input)))
+  withErrorHandling((input) => absorb(memoryService, experienceService, affectService, projectService, AGENT_LABEL, absorbSchema.parse(input)))
 );
 
 server.tool(
@@ -373,7 +385,7 @@ server.tool(
   "record_experience",
   "Record an episodic experience: what happened, how hard it felt, what worked, what failed, and the emotional tone. Use after completing any non-trivial task — these episodes feed the agent's evolving 'soul'.",
   recordExperienceSchema.shape,
-  withErrorHandling((input) => recordExperience(experienceService, neurochemistryService, GENOME_LABEL, recordExperienceSchema.parse(input)))
+  withErrorHandling((input) => recordExperience(experienceService, neurochemistryService, projectService, GENOME_LABEL, AGENT_LABEL, recordExperienceSchema.parse(input)))
 );
 
 server.tool(
@@ -394,7 +406,7 @@ server.tool(
   "record_lesson",
   "Store a synthesised lesson distilled from a cluster of episodes. Marks the source episodes as reflected.",
   recordLessonSchema.shape,
-  withErrorHandling((input) => recordLesson(experienceService, neurochemistryService, GENOME_LABEL, recordLessonSchema.parse(input)))
+  withErrorHandling((input) => recordLesson(experienceService, neurochemistryService, projectService, GENOME_LABEL, AGENT_LABEL, recordLessonSchema.parse(input)))
 );
 
 server.tool(
@@ -451,7 +463,7 @@ server.tool(
   "set_intention",
   "Declare a forward-looking goal in first person. Subsequent experiences that semantically match will automatically advance its progress.",
   setIntentionSchema.shape,
-  withErrorHandling((input) => setIntention(experienceService, setIntentionSchema.parse(input)))
+  withErrorHandling((input) => setIntention(experienceService, projectService, AGENT_LABEL, setIntentionSchema.parse(input)))
 );
 
 server.tool(
@@ -925,6 +937,71 @@ server.tool(
   "Check the prompt-injection guard sidecar: up/down, whether the llama-guard3 classifier is loaded, or if we're running in regex-only fallback.",
   guardStatusSchema.shape,
   withErrorHandling((input) => guardStatus(guardService, guardStatusSchema.parse(input)))
+);
+
+// --- projects (Migration 045) -----------------------------------------------
+// First-class project entity that scopes memories/experiences/intentions/
+// lessons. Agents set an active project via set_active_project; subsequent
+// writes from that agent auto-scope. Reads stay global unless the caller
+// explicitly asks for a scoped brief via project_brief.
+server.tool(
+  "create_project",
+  "Create a new project — a coarse organizing handle above memories/experiences/intentions. Use a stable slug you'll use to reference it everywhere (e.g. 'vectormemory-schritt-3').",
+  createProjectSchema.shape,
+  withErrorHandling((input) => createProject(projectService, createProjectSchema.parse(input)))
+);
+
+server.tool(
+  "list_projects",
+  "List all projects with activity counts (memories, experiences, open intentions, lessons, last activity). Optionally filter by status.",
+  listProjectsSchema.shape,
+  withErrorHandling((input) => listProjects(projectService, listProjectsSchema.parse(input)))
+);
+
+server.tool(
+  "get_project",
+  "Fetch a project's header info (name, description, status, metadata) by slug.",
+  getProjectSchema.shape,
+  withErrorHandling((input) => getProject(projectService, getProjectSchema.parse(input)))
+);
+
+server.tool(
+  "project_brief",
+  "Condensed state for context priming: project header + counts + open intentions + recent experiences + key memories + top lessons. This is the single call to make when a user says 'work on project X'.",
+  projectBriefSchema.shape,
+  withErrorHandling((input) => projectBrief(projectService, projectBriefSchema.parse(input)))
+);
+
+server.tool(
+  "set_active_project",
+  "Set the active project for an agent (defaults to this server's agent label). All subsequent writes from this agent that omit an explicit project will be auto-scoped.",
+  setActiveProjectSchema.shape,
+  withErrorHandling((input) => setActiveProject(projectService, setActiveProjectSchema.parse(input)))
+);
+
+server.tool(
+  "update_project_status",
+  "Change a project's lifecycle state (active / paused / completed / archived).",
+  updateProjectStatusSchema.shape,
+  withErrorHandling((input) => updateProjectStatus(projectService, updateProjectStatusSchema.parse(input)))
+);
+
+server.tool(
+  "link_to_project",
+  "Attach an existing memory/experience/intention/lesson row to a project, or detach it (pass slug=null).",
+  linkToProjectSchema.shape,
+  withErrorHandling((input) => linkToProject(projectService, linkToProjectSchema.parse(input)))
+);
+
+// --- tool discovery (Schritt 3) ---------------------------------------------
+// Small-model agents run with minimal profile + find_tool for JIT lookup.
+// scripts/index-tools.mjs populates the registry once; find_tool does
+// semantic recall against category='tool'.
+server.tool(
+  "find_tool",
+  "JIT tool discovery: describe what you want to do, get back the top-k matching openClaw tools from the indexed registry. Use this whenever you need a capability that isn't in your minimal tool profile — no need to know tool names upfront.",
+  findToolSchema.shape,
+  withErrorHandling((input) => findTool(memoryService, findToolSchema.parse(input)))
 );
 
 async function main() {

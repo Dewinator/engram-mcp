@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { MemoryService } from "../services/supabase.js";
 import type { ExperienceService } from "../services/experiences.js";
 import type { AffectService } from "../services/affect.js";
+import type { ProjectService } from "../services/projects.js";
 import { scoreEncoding } from "../services/heuristics.js";
 
 /**
@@ -34,6 +35,13 @@ export const absorbSchema = z.object({
     .optional()
     .describe(
       "Optional: why this matters or where it came from. Not stored separately, but appended to improve embedding quality."
+    ),
+  project: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      "Project slug to scope this memory (and any auto-derived experience) to. Omit to use the agent's active project. Pass null to force global."
     ),
 });
 
@@ -155,6 +163,8 @@ export async function absorb(
   memoryService: MemoryService,
   experienceService: ExperienceService,
   affectService: AffectService,
+  projectService: ProjectService,
+  agentLabel: string,
   input: z.infer<typeof absorbSchema>
 ) {
   // Build the content: text + context if provided
@@ -164,6 +174,8 @@ export async function absorb(
 
   const category = detectCategory(content);
   const tags = extractTags(content);
+
+  const project_id = await projectService.resolveScope(input.project, agentLabel);
 
   // MemoryService.create() handles:
   //  - heuristic scoring (importance, valence, arousal, decay_tau_days, ephemeral)
@@ -176,6 +188,7 @@ export async function absorb(
     category,
     tags,
     source: "absorb",
+    project_id,
   });
 
   const wasDuplicate = memory.source !== "absorb"; // create() returns existing if duplicate
@@ -212,6 +225,14 @@ export async function absorb(
           person_name: personName ?? undefined,
           person_relationship: personName ? "user" : undefined,
         });
+        // Project-scope the auto-derived experience to match the memory.
+        if (project_id) {
+          try {
+            await projectService.applyScopeToRow("experiences", exp.id, project_id);
+          } catch (scopeErr) {
+            console.error("absorb: project-scope on experience failed (non-fatal):", scopeErr);
+          }
+        }
         experienceNote = ` + experience [${exp.id.slice(0, 8)}]`;
       } catch (err) {
         // Non-fatal: memory was still stored successfully. Surface a

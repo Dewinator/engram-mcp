@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ExperienceService } from "../services/experiences.js";
 import type { MemoryService } from "../services/supabase.js";
+import type { ProjectService } from "../services/projects.js";
 
 // ===========================================================================
 // MOOD
@@ -33,18 +34,33 @@ export const setIntentionSchema = z.object({
     .string()
     .optional()
     .describe("Optional ISO date (YYYY-MM-DD)"),
+  project: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("Project slug to scope this intention to. Omit for agent's active project, null for global."),
 });
 
 export async function setIntention(
   service: ExperienceService,
+  projects: ProjectService,
+  agentLabel: string,
   input: z.infer<typeof setIntentionSchema>
 ) {
   const id = await service.setIntention(input);
+  const project_id = await projects.resolveScope(input.project, agentLabel);
+  if (project_id) {
+    try {
+      await projects.applyScopeToRow("intentions", id, project_id);
+    } catch (err) {
+      console.error("setIntention: project-scope failed (non-fatal):", err);
+    }
+  }
   return {
     content: [
       {
         type: "text" as const,
-        text: `Intention set [priority=${input.priority ?? 0.5}]: "${input.intention}" [id: ${id}]`,
+        text: `Intention set [priority=${input.priority ?? 0.5}${project_id ? ", project-scoped" : ""}]: "${input.intention}" [id: ${id}]`,
       },
     ],
   };
