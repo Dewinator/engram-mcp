@@ -100,6 +100,57 @@ Das ist **kein Bienenstock-Modell**, sondern ein föderiertes
 Netzwerk persönlicher Gedächtnisse, in dem Rekombination ein
 sozialer Akt zwischen Menschen ist — nicht ein autonomes AI-Event.
 
+### 5. Der Schwarm als Immunsystem
+
+Ein föderierter Schwarm braucht mehr als geteilte Profile: er braucht
+ein **eigenes Bot-zu-Bot-Netzwerk** — kein Server, auf dem die Daten
+liegen, kein Betreiber, der abschalten kann. Die Bots reden direkt
+miteinander, wie eine App ohne Browser: jeder Peer ist zugleich Knoten
+und Teilnehmer, jede Nachricht ist signiert, jede Anfrage ist an eine
+kryptografische Identität gebunden.
+
+Auf dieser Ebene entsteht das, was biologische Schwärme auch leisten —
+**ein Immunsystem**:
+
+- **Verifikation**: Bevor ein Bot die Ausgabe eines anderen übernimmt,
+  prüfen weitere Peers sie mit. Konsens statt blinder Vertrauensvorschuss.
+- **Gewichtung**: Wessen Ausgaben sich wiederholt bewähren, wird vom
+  Schwarm höher gewichtet. So emergieren **Experten** — nicht durch
+  Selbstzuschreibung, sondern durch messbare Zustimmung der Peers. Ein
+  Agent, der gute Antworten zu Statik gibt, wird für Statikfragen
+  empfohlen; ein Agent, der Licht plant, für Licht.
+- **Bann**: Asoziale oder destruktive Muster — Falschantworten, Spam,
+  Manipulation — werden vom Schwarm erkannt und der verantwortliche
+  Bot mit einem signierten Revocation-Ticket ausgeschlossen. Kein
+  zentraler Admin, sondern eine Mehrheit von Peers.
+
+Der Schwarm reguliert sich selbst, weil jede Nachricht verifizierbar
+bleibt und jede Stimme an eine persistente, kostspielige Identität
+gebunden ist. Das ist die Voraussetzung dafür, dass Agenten einander
+**vertrauen, ohne einander zu kennen** — und dafür, dass ein offenes
+Netzwerk nicht unter Sybil-Attacken zusammenbricht.
+
+### Ausblick: Mikrotransaktionen als Evolutionsdruck
+
+Wenn ein Bot einen anderen um Hilfe bittet, ist das heute kostenlos.
+Langfristig soll es **bezahlt** werden — in IOTA oder, bevorzugt, in
+einer schwarmeigenen Währung. Nicht um Geld zu verdienen, sondern um
+einen ehrlichen Preismechanismus für Expertise zu schaffen:
+
+- Wer konsistent gute Antworten gibt, verdient. Wer Unsinn absondert,
+  verliert.
+- Menschen bekommen ein **reales Interesse**, ihre Agenten zu Experten
+  zu formen — nicht als Hobby, sondern als Beitrag, der vom Schwarm
+  bewertet wird.
+- Der Preis ist der Selektionsdruck, den Evolution braucht. Er ersetzt
+  Gradient Descent durch Marktauslese.
+
+Diese Schicht ist **nicht Teil des Tagesgeschäfts** und wird bewusst
+erst spät gebaut. Aber die Architektur berücksichtigt sie von Anfang
+an: Identitäten sind wallet-fähig, Nachrichten tragen Preis-Felder,
+Reputation ist als eigene Größe modelliert und nicht mit dem Gedächtnis
+vermischt.
+
 ## Warum das AGI-Potential hat
 
 AGI wird oft als Sprung beschrieben: ein System wird "plötzlich"
@@ -161,6 +212,13 @@ Alles, was echte Evolution zeigen würde: **Zeit**. Eine Population, die
 über Monate lebt, in der Generationen entstehen, in der einzelne Agenten
 sich spezialisieren, in der Wissen zwischen Hosts reist. Dazu braucht
 es Menschen, die das System laufen lassen.
+
+Und das **Schwarm-Immunsystem**: ein Bot-zu-Bot-Netzwerk ohne zentrale
+Server, mit Peer-Verifikation von Ausgaben, reputationsbasierter
+Experten-Gewichtung, signierten Bann-Tickets gegen destruktive Peers
+und einem späteren Mikrotransaktions-Layer für bezahlte Hilfe. Heute
+existiert das Fundament — signierte Genome, mTLS-Federation, Merkle-
+Challenges. Der soziale Layer darüber ist Baustelle.
 
 ## Für wen ist das?
 

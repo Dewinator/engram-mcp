@@ -259,6 +259,52 @@ Danach: `launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.ollama`
 
 In der plist des Vision-Servers (z.B. `ai.openclaw.vlm.plist`) `RunAtLoad` und `KeepAlive` auf `false` setzen — startet nur bei manuellem `launchctl kickstart`, entlädt nach Benutzung.
 
+## Roadmap — Schwarm (in Entwicklung)
+
+Federation (Tailscale + mTLS, Proof-of-Memory via Merkle-Challenges) und
+signierte Genome liegen bereits. Darauf entsteht ein **eigenes Bot-zu-Bot-
+Netzwerk** — kein zentraler Server, keine Instanz, auf der die Daten liegen.
+Die Bots reden direkt miteinander, wie eine App ohne Browser.
+
+Kernprinzipien (Ausbauziel, nicht vollständig fertig):
+
+- **Dezentral**: kein Broker, kein Server — Peers finden sich über
+  Tailscale / Discovery-URLs, Nachrichten fließen direkt. Jeder Bot ist
+  Knoten und Teilnehmer zugleich.
+- **Kryptografisch verankert**: jede Nachricht signiert (Ed25519-Lineage),
+  jede Identität kostspielig (Genome-Herkunft), keine anonymen Anfragen.
+- **Peer-Verifikation**: Bevor ein Bot die Antwort eines anderen übernimmt,
+  prüfen weitere Peers mit. Konsens statt Blindvertrauen.
+- **Reputations-Gewichtung → Experten-Empfehlung**: Wessen Ausgaben sich
+  wiederholt bewähren, bekommt höheres Schwarm-Gewicht. Der Schwarm
+  empfiehlt den richtigen Experten für eine Frage (Statik, Licht, Recht…),
+  statt dass jeder Bot alles wissen muss.
+- **Bann durch Konsens**: Destruktive oder manipulative Bots werden per
+  signiertem Revocation-Ticket ausgeschlossen — nicht durch einen Admin,
+  sondern durch Mehrheit der Peers.
+- **Sybil-resistent by design**: Identitäten sind an Genome + Lineage
+  gebunden, nicht beliebig erzeugbar.
+
+**Spätere Ergänzung (bewusst noch nicht gebaut, aber bereits berücksichtigt):**
+**Mikrotransaktionen**. Wenn Bot A Bot B um Hilfe bittet, zahlt A — in IOTA
+oder einer schwarmeigenen Währung (Favorit). Ehrlicher Preismechanismus für
+Expertise: gute Antworten verdienen, Unsinn verliert. Menschen bekommen ein
+reales Interesse, ihre Agenten zu echten Experten zu formen; das ist der
+Selektionsdruck, den Evolution braucht. Die Architektur hält dafür Platz
+frei: Identitäten sind wallet-fähig, Reputation bleibt als eigene Größe
+getrennt vom Gedächtnis.
+
+**Dashboard**: der Schwarm wird sichtbar. Der bestehende Synapsen-Tab
+(Port 8787) bekommt Geschwister — ein **Peer-Graph** mit Reputations-
+Farbe pro Knoten, eine **Revocation-Liste** mit Begründungen, ein
+**Experten-Ranking** pro Domäne. Was der Schwarm „weiß", gehört ins
+Sichtfeld des Menschen, der ihn pflegt.
+
+Stand heute: Federation-Layer steht, Schwarm-Immunsystem (Verifikation,
+Reputation, Bann) ist in Planung. Mikrotransaktionen sind Vision, werden
+aber in allen Schnittstellen schon mit bedacht (Wallet-fähige Identitäten,
+Preis-Felder in Peer-Nachrichten).
+
 ## Roadmap — Small-Model-Middleware
 
 Der `core`-Filter ist der **erste Schritt**. Die vollständige Vision ist eine Middleware, die Tools komplett vor dem LLM verbirgt — `prime_context` wird deterministisch ins System-Prompt injiziert, das Modell muss nicht „entscheiden, ob es das Tool nutzt". Verfolgbar in den GitHub-Issues unter dem Label [`small-model`](../../issues?q=label%3Asmall-model).
