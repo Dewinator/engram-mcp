@@ -33,6 +33,7 @@ const { MemoryService }      = await import(path.join(DIST, "services/supabase.j
 const { ExperienceService }  = await import(path.join(DIST, "services/experiences.js"));
 const { IdentityService }    = await import(path.join(DIST, "services/identity.js"));
 const identityTools          = await import(path.join(DIST, "tools/identity.js"));
+const { consolidateByPatterns } = await import(path.join(__dirname, "consolidate-by-patterns.mjs"));
 
 // Low-level REST fuer sleep_cycles insert/update — reines fetch, keine extra dep
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -103,15 +104,25 @@ async function finishCycle(id, status, startedAt, extra = {}) {
 //   forget_weak_memories  — synaptic downscaling (Tononi SHY)
 //   consolidate_memories  — episodic → semantic
 //   dedup_memories        — merge near-duplicates
+//   relations_by_patterns — Tag-Ko-Vorkommen → `related`-Edges (Engram)
 // ---------------------------------------------------------------------------
 async function runSws() {
-  const out = { forgotten: 0, consolidated: 0, deduped: 0, errors: [] };
+  const out = { forgotten: 0, consolidated: 0, deduped: 0, relations_created: 0, errors: [] };
   try { out.forgotten = await memSvc.forgetWeak(0.05, 7); }
   catch (e) { out.errors.push({ step: "forget_weak", msg: String(e?.message ?? e) }); }
   try { out.consolidated = await memSvc.consolidate(3, 1); }
   catch (e) { out.errors.push({ step: "consolidate", msg: String(e?.message ?? e) }); }
   try { out.deduped = await memSvc.dedup(0.93); }
   catch (e) { out.errors.push({ step: "dedup_memories", msg: String(e?.message ?? e) }); }
+  try {
+    const rel = await consolidateByPatterns({
+      supabaseUrl: SUPABASE_URL,
+      supabaseKey: SUPABASE_KEY,
+    });
+    out.relations_created = rel.edges_created;
+    out.relations_pairs   = rel.pairs_processed;
+    if (rel.errors.length) out.errors.push({ step: "relations_by_patterns", count: rel.errors.length, sample: rel.errors.slice(0, 2) });
+  } catch (e) { out.errors.push({ step: "relations_by_patterns", msg: String(e?.message ?? e) }); }
   return out;
 }
 
