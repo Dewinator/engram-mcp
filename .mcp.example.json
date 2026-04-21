@@ -1,0 +1,18 @@
+{
+  "_comment": "Template for .mcp.json. Copy to .mcp.json and replace placeholders. .mcp.json is gitignored — keep real secrets there, never commit.",
+  "mcpServers": {
+    "vector-memory": {
+      "command": "node",
+      "args": ["<ABSOLUTE_PATH_TO_REPO>/mcp-server/dist/index.js"],
+      "env": {
+        "SUPABASE_URL": "http://localhost:54321",
+        "SUPABASE_KEY": "<YOUR_SUPABASE_SERVICE_ROLE_JWT>",
+        "OLLAMA_URL": "http://localhost:11434",
+        "EMBEDDING_MODEL": "nomic-embed-text",
+        "EMBEDDING_DIMENSIONS": "768",
+        "OPENCLAW_AGENT_BUS": "0",
+        "OPENCLAW_AGENT_CONSCIENCE": "0"
+      }
+    }
+  }
+}
