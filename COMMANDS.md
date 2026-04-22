@@ -1,4 +1,4 @@
-# vectormemory-openclaw — Befehlsreferenz
+# mycelium — Befehlsreferenz
 
 ## Installation
 
@@ -7,8 +7,8 @@
 cp ~/.openclaw/settings.json ~/.openclaw/settings.json.backup
 
 # Repo klonen
-git clone https://github.com/Dewinator/vectormemory-openclaw.git
-cd vectormemory-openclaw
+git clone https://github.com/Dewinator/mycelium.git
+cd mycelium
 
 # One-Click Installer (oder Doppelklick auf install.command im Finder)
 ./install.command
@@ -21,20 +21,20 @@ cd vectormemory-openclaw
 
 ```bash
 # Nach Mac-Neustart: Docker starten (Docker Desktop muss laufen)
-cd ~/vectormemory-openclaw/docker && docker compose up -d
+cd ~/mycelium/docker && docker compose up -d
 
 # Status prüfen
-cd ~/vectormemory-openclaw && bash scripts/health-check.sh
+cd ~/mycelium && bash scripts/health-check.sh
 
 # Logs ansehen
-cd ~/vectormemory-openclaw/docker && docker compose logs -f
+cd ~/mycelium/docker && docker compose logs -f
 ```
 
 ## Memory Import (optional)
 
 ```bash
 # Vorschau (ändert nichts)
-cd ~/vectormemory-openclaw
+cd ~/mycelium
 export SUPABASE_KEY=$(grep JWT_SECRET docker/.env | cut -d= -f2)
 npx tsx scripts/import-memories.ts ~/.openclaw/workspace/memory --dry-run
 
@@ -49,8 +49,8 @@ npx tsx scripts/import-memories.ts ~/.openclaw/workspace/memory
 cp ~/.openclaw/settings.json.backup ~/.openclaw/settings.json
 
 # 2. Docker stoppen + Daten löschen
-cd ~/vectormemory-openclaw/docker && docker compose down -v
+cd ~/mycelium/docker && docker compose down -v
 
 # 3. Projektordner löschen
-rm -rf ~/vectormemory-openclaw
+rm -rf ~/mycelium
 ```

@@ -1,15 +1,17 @@
-# CLAUDE.md — vectormemory-openclaw
+# CLAUDE.md — mycelium
 
 ## Projektziel
 
-Dieses Projekt ersetzt das dateibasierte Gedächtnissystem von **openClaw** (Markdown-Dateien + sqlite-vec) durch eine **Supabase-Vektordatenbank** (PostgreSQL + pgvector), die lokal per Docker gehostet wird. Ziel ist ein skalierbares, semantisch durchsuchbares Langzeitgedächtnis für den openClaw-Agenten.
+mycelium ist eine **eigenständige kognitive Schicht für LLM-Agenten**: persistentes Vektorgedächtnis (Supabase + pgvector, lokal per Docker), Affekt-Regulator, 3-System-Neurochemie, Experience/Soul-Stack, Active Inference, Motivation-Engine, Genome-basierte Evolution und mTLS-Federation. Spricht MCP und funktioniert mit jedem MCP-fähigen Client — Claude Code, Cursor, Cline, Codex, openClaw oder einem anderen.
+
+Historischer Kontext: Der erste Einsatzzweck war, das dateibasierte Markdown-Memory von openClaw durch einen skalierbaren Vektorstore zu ersetzen; daher stammt der Repo-Anfang. Die Architektur ist inzwischen weit darüber hinausgewachsen und frameworkagnostisch.
 
 ## Architektur-Übersicht
 
 ```
 ┌─────────────────────┐     MCP Protocol      ┌──────────────────────┐
 │                     │ ◄──────────────────── │                      │
-│   openClaw Agent    │                        │  Vector Memory MCP   │
+│   MCP client (any)  │                        │   mycelium MCP       │
 │   (Claude/LLM)      │ ────────────────────► │  Server (TypeScript)  │
 │                     │   remember / recall    │                      │
 └─────────────────────┘                        └──────────┬───────────┘
@@ -29,15 +31,15 @@ Dieses Projekt ersetzt das dateibasierte Gedächtnissystem von **openClaw** (Mar
 
 ## Deployment-Modell
 
-Dieses Projekt ist ein **standalone MCP Server**, der als Plugin in eine bestehende openClaw-Installation eingebunden wird. Entwicklung findet hier auf GitHub statt — Installation auf dem Zielrechner (z.B. Mac M4 mit 16 GB RAM).
+mycelium ist ein **standalone MCP Server**, der in beliebige MCP-fähige Clients eingebunden wird. Kein vorgeschriebenes Agent-Framework. Entwicklung findet hier auf GitHub statt — Installation auf dem Zielrechner (z.B. Mac M4 mit 16 GB RAM).
 
 ```
-Zielrechner (Mac)
-├── openClaw                    ← bereits installiert
+Zielrechner (Mac / Linux)
+├── MCP client                  ← Claude Code, Cursor, Cline, Codex, openClaw, … (frei wählbar)
 ├── Ollama                      ← brew install ollama
 ├── Docker Desktop              ← für Supabase
 │   └── Supabase (PostgreSQL + pgvector)  ~500 MB RAM
-└── vectormemory-openclaw/      ← git clone + ./setup.sh
+└── mycelium/                   ← git clone + ./setup.sh
     └── MCP Server (Node.js)
 ```
 
@@ -45,10 +47,10 @@ Zielrechner (Mac)
 
 ### Installation auf Zielrechner
 ```bash
-git clone https://github.com/Dewinator/vectormemory-openclaw.git
-cd vectormemory-openclaw
+git clone https://github.com/Dewinator/mycelium.git
+cd mycelium
 ./setup.sh    # Prüft Abhängigkeiten, startet Supabase, baut MCP Server
-# → Gibt openClaw-Config zum Einfügen aus
+# → Gibt MCP-Client-Config zum Einfügen aus
 ```
 
 ## Techstack
@@ -57,22 +59,20 @@ cd vectormemory-openclaw
 |---|---|---|
 | **Vektordatenbank** | Supabase (self-hosted Docker) + pgvector | Speicherung & Suche von Embeddings |
 | **Embedding-Modell** | Ollama lokal (`nomic-embed-text`, 768 Dim., ~270 MB RAM) | Textumwandlung in Vektoren (kostenlos, flat) |
-| **MCP Server** | Custom TypeScript MCP Server (`@modelcontextprotocol/sdk`) | Schnittstelle zwischen openClaw und Supabase |
-| **openClaw Integration** | MCP Server Eintrag in `settings.json` | Einbindung als Tool in openClaw |
+| **MCP Server** | Custom TypeScript MCP Server (`@modelcontextprotocol/sdk`) | Schnittstelle zwischen jedem MCP-Client und Supabase |
+| **Client-Integration** | MCP Server Eintrag in der Client-Config (`.mcp.json`, `settings.json`, …) | Einbindung in Claude Code / Cursor / Cline / Codex / openClaw / … |
 | **Sprache** | TypeScript (Node.js) | MCP Server, Migrations, Scripts |
 | **Containerisierung** | Docker Compose | Lokales Supabase-Hosting |
 
 ## Memory-Architektur (Ziel)
 
-### Bestehend (openClaw Standard)
-- **Tier 1**: `MEMORY.md` — Kuratierte Kernfakten (~100 Zeilen), immer geladen
-- **Tier 2**: `memory/YYYY-MM-DD.md` — Tägliche Notizen, automatisch geladen
-- **Tier 3**: `memory/people/`, `memory/topics/`, etc. — Durchsucht via sqlite-vec + BM25
+### In mycelium (primary)
+- **Vector store** auf Supabase pgvector mit Hybrid-Suche (Vektor + Volltext), HNSW-Index
+- **Automatische Embedding-Generierung** bei Speicherung via Ollama `nomic-embed-text` (lokal) oder OpenAI API
+- **Soft-Forgetting** mit Audit-Trail (decay, strength, importance, pinning, useful-count)
 
-### Neu (dieses Projekt)
-- **Tier 1 & 2**: Bleiben als Markdown (schneller Kontextzugriff, immer im Prompt)
-- **Tier 3**: Migration auf Supabase pgvector mit Hybrid-Suche (Vektor + Volltext)
-- **Zusätzlich**: Automatische Embedding-Generierung bei Speicherung neuer Erinnerungen
+### Optional-Framework-Beispiele
+Einige Clients haben zusätzlich ein eigenes dateibasiertes Memory (z.B. openClaw's Markdown-Tiers 1–3). mycelium ersetzt oder ergänzt solche Schichten — das ist clientseitige Designentscheidung, kein Muss. `import_markdown` migriert bestehende Datei-Memories in den Vektorstore.
 
 ## Datenbankschema (pgvector)
 
@@ -138,8 +138,8 @@ Der MCP Server stellt folgende Tools bereit:
 - [ ] `list_memories`-Tool
 - [ ] Unit Tests
 
-### M3: openClaw Integration
-- [ ] MCP Server als openClaw-Tool registrieren (TOOLS.md / `.openclaw/settings.json`)
+### M3: Client-Integration
+- [ ] MCP Server als Tool in MCP-Clients registrieren (`.mcp.json`, Cursor settings, openClaw settings, …)
 - [ ] SOUL.md / AGENTS.md anpassen für Memory-Nutzung
 - [ ] Automatische Memory-Extraktion aus Konversationen
 - [ ] Test: Ende-zu-Ende Workflow (Speichern → Suchen → Abrufen)
@@ -168,8 +168,8 @@ Vorbild, mit konzentrierter Wissensvererbung und user-kuratierter Paarung.
 ### Phase A+B — Fundament + Reproduzierbarkeit (erledigt)
 - agents-Registry + Heartbeat (Migration 028)
 - Provenance-Tags auf memories/experiences/lessons/soul_traits (029)
-- Genome-Modellfelder als dokumentarische Vererbung (030 — **OpenClaw-Config
-  bleibt Authority**, Genome spiegelt nur wider)
+- Genome-Modellfelder als dokumentarische Vererbung (030 — **Client-Konfig
+  bleibt Authority für Modellwahl**, Genome spiegelt nur wider)
 - `scripts/provision-instance.mjs` — reproduzierbarer Installer
 - Dashboard Population-Tab mit Stammbaum-SVG
 
@@ -237,7 +237,7 @@ Bots kennen, morgen können zwei Menschen ihren jeweiligen Bot vorstellen.
 ## Projektstruktur (Ziel)
 
 ```
-vectormemory-openclaw/
+mycelium/
 ├── CLAUDE.md                    # Diese Datei
 ├── README.md                    # Projektbeschreibung
 ├── docker/
@@ -268,7 +268,7 @@ vectormemory-openclaw/
 │   │       └── memory.ts
 │   └── tests/
 ├── openclaw-config/
-│   ├── TOOLS.md                 # Tool-Beschreibungen für openClaw
+│   ├── TOOLS.md                 # Beispiel-Tool-Beschreibungen (funktioniert mit openClaw; andere Clients nutzen analoge Configs)
 │   └── settings.example.json    # MCP Server Konfiguration
 └── scripts/
     ├── setup.sh                 # Ersteinrichtung
@@ -283,21 +283,21 @@ vectormemory-openclaw/
 - Docker Desktop
 - Node.js >= 20
 - Ollama (`brew install ollama` + `ollama pull nomic-embed-text`)
-- openClaw installiert und konfiguriert
+- Ein MCP-fähiger Client installiert und konfiguriert (z.B. Claude Code, Cursor, Cline, Codex, openClaw)
 
 ### Setup (Zielrechner)
 ```bash
 # Einmalig:
-git clone https://github.com/Dewinator/vectormemory-openclaw.git
-cd vectormemory-openclaw
+git clone https://github.com/Dewinator/mycelium.git
+cd mycelium
 ./setup.sh    # Alles automatisch
 
-# Dann in openClaw settings.json einfügen:
+# Dann in die Config deines MCP-Clients einfügen (.mcp.json, Cursor settings, openClaw settings, …):
 # {
 #   "mcpServers": {
-#     "vector-memory": {
+#     "mycelium": {
 #       "command": "node",
-#       "args": ["/pfad/zu/vectormemory-openclaw/mcp-server/dist/index.js"]
+#       "args": ["/pfad/zu/mycelium/mcp-server/dist/index.js"]
 #     }
 #   }
 # }

@@ -1,7 +1,7 @@
 {
-  "name": "vectormemory-mcp-server",
+  "name": "mycelium-mcp-server",
   "version": "0.1.0",
-  "description": "MCP server for openClaw vector memory backed by Supabase pgvector",
+  "description": "mycelium — cognitive architecture MCP server (Supabase pgvector + Ollama). Works with any MCP client.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

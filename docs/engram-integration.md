@@ -5,7 +5,7 @@ Bezugsquelle: `cueplex-engram` v0.15.0 (HEAD 12b9ee9, 2026-04-19) — 10 Agents,
 
 ## Ausgangslage
 
-vector-memory (vectormemory-openclaw) hatte schon **mehr Migrations (45) und mehr Tools (~90)** als engram. Kernunterschied war *nicht* der Reifegrad, sondern zwei strukturelle Primitive, die engram hat und wir nicht:
+mycelium (damals vectormemory-openclaw) hatte schon **mehr Migrations (45) und mehr Tools (~90)** als cueplex-engram. Kernunterschied war *nicht* der Reifegrad, sondern zwei strukturelle Primitive, die cueplex-engram hatte und wir nicht:
 
 1. **Explizite, typisierte Relations zwischen Memories.** Wir hatten nur die undirected/weight-only Hebbian-Links aus Migration 007. Damit ließ sich "A supersedes B" oder "A caused_by B" nicht ausdrücken.
 2. **Ein kanonischer Event-Log.** Unsere Lifecycle-Signale waren über mehrere Tabellen verstreut (access-count, neurochem-history, experience_causes, guard_events). Kein Stream, kein per-Agent-Cursor, keine trace_id-Korrelation.
@@ -63,13 +63,13 @@ Die engram-Agents, die einen LLM-Call brauchen, sollten zum **OpenClaw-Gateway (
 
 ```bash
 # Migrations einspielen
-cd ~/vectormemory-openclaw && bash scripts/migrate.sh
+cd ~/mycelium && bash scripts/migrate.sh
 
 # Build
 cd mcp-server && npm run build
 
 # Smoke-Test
-source ~/vectormemory-openclaw/docker/.env
+source ~/mycelium/docker/.env
 PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -p 54322 -U postgres -d vectormemory -c \
   "SELECT jsonb_pretty(memory_patterns(0.01, 10, NULL));"
 ```

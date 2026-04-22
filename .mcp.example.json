@@ -1,7 +1,7 @@
 {
   "_comment": "Template for .mcp.json. Copy to .mcp.json and replace placeholders. .mcp.json is gitignored — keep real secrets there, never commit.",
   "mcpServers": {
-    "vector-memory": {
+    "mycelium": {
       "command": "node",
       "args": ["<ABSOLUTE_PATH_TO_REPO>/mcp-server/dist/index.js"],
       "env": {

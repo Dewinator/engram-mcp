@@ -33,7 +33,7 @@ check() {
   fi
 }
 
-echo "Health Check — vectormemory-openclaw"
+echo "Health Check — mycelium"
 echo ""
 
 # 1. PostgreSQL reachable

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# vectormemory-openclaw watchdog v2
-# Job: Hält das gesamte Setup für openClaw am Leben — Docker, Supabase (pg_isready),
+# mycelium watchdog v2
+# Job: Hält das gesamte mycelium-Setup am Leben — Docker, Supabase (pg_isready),
 # Ollama (HTTP-Probe) und das Embedding-Modell. Echte Health-Probes statt
 # "Container läuft = ok"-Annahmen, mit Verifikation, Status-Snapshot,
 # Backoff und macOS-Notification bei dauerhaftem Ausfall.

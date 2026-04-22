@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-echo "=== vectormemory-openclaw Setup ==="
+echo "=== mycelium setup ==="
 echo ""
 
 # ── Check prerequisites ──────────────────────────────────
@@ -99,7 +99,7 @@ if [ -f "$PROJECT_DIR/mcp-server/package.json" ]; then
   MCP_PATH="$PROJECT_DIR/mcp-server/dist/index.js"
 else
   echo "  ⚠ MCP server not yet created (M2)"
-  MCP_PATH="/pfad/zu/vectormemory-openclaw/mcp-server/dist/index.js"
+  MCP_PATH="/pfad/zu/mycelium/mcp-server/dist/index.js"
 fi
 
 echo ""
@@ -111,7 +111,8 @@ bash "$SCRIPT_DIR/health-check.sh"
 echo ""
 echo "=== Setup complete! ==="
 echo ""
-echo "Add this to your openClaw settings.json:"
+echo "Add this to your MCP client's settings (e.g. .mcp.json for Claude Code,"
+echo "settings.json for Cursor, openClaw settings.json, etc.):"
 echo ""
-echo "  {\"mcpServers\": {\"vector-memory\": {\"command\": \"node\", \"args\": [\"$MCP_PATH\"]}}}"
+echo "  {\"mcpServers\": {\"mycelium\": {\"command\": \"node\", \"args\": [\"$MCP_PATH\"]}}}"
 echo ""

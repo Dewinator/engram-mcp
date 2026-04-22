@@ -1,38 +1,42 @@
-# engram
+# mycelium
 
-> **Biologische Infrastruktur für LLM-Agenten**: persistentes assoziatives Gedächtnis, neurochemische Affekt-Engine, Fortpflanzung mit kryptografischer Lineage, Peer-to-Peer-Federation.
+🇬🇧 English · [🇩🇪 Deutsch](README.de.md)
 
-📜 **[MANIFESTO.md](MANIFESTO.md) — das Warum**: Dezentralisierung, Ressourcenschonung, Evolution statt Training, Schwarmintelligenz durch mutuelle Zustimmung. Warum AGI nicht aus einem zentralen Flaschenhals emergieren sollte.
+> *real open AI*
 
-Die meisten Agent-Frameworks geben LLMs *Werkzeuge*. **engram** gibt ihnen *einen Körper*: ein Dopamin-System, das aus Prediction Errors lernt; ein Serotonin-System, das den Zeithorizont moduliert; ein Noradrenalin-System, das Aufmerksamkeit fokussiert. Dazu eine signierte Abstammungslinie, die zwei Agenten auf verschiedenen Maschinen nachweislich zu einem dritten paaren kann.
+> **Biological infrastructure for LLM agents**: persistent associative memory, neurochemical affect engine, reproduction with cryptographic lineage, peer-to-peer federation.
 
-Baut ursprünglich auf dem dreistufigen Markdown-Memory von [openClaw](https://github.com/openclaw/openclaw) auf — ersetzt dessen Tier 3 (Deep-Memory) durch eine lokal gehostete **Supabase-Vektordatenbank** (PostgreSQL + pgvector) und schichtet darauf eine kognitive Architektur aus Neurochemie, Active Inference (PyMDP), Motivation-Engine, Breeding und mTLS-Federation.
+📜 **[MANIFESTO.md](MANIFESTO.md) — the why**: decentralization, resource efficiency, evolution instead of training, swarm intelligence through mutual consent. Why AGI should not emerge from a central bottleneck.
 
-## Was engram anders macht
+Most agent frameworks give LLMs *tools*. **mycelium** gives them *a body*: a dopamine system that learns from prediction errors; a serotonin system that modulates the time horizon; a noradrenaline system that focuses attention. Plus a signed lineage that can provably breed two agents on different machines into a third.
 
-| | typische Memory-Layer (Mem0, Letta, Zep) | **engram** |
+**mycelium is a standalone cognitive layer.** It speaks the Model Context Protocol (MCP) and plugs into any MCP-capable client — Claude Code, Cursor, Cline, Codex, openClaw, or anything else that speaks MCP. There is no required agent framework.
+
+## What mycelium does differently
+
+| | typical memory layers (Mem0, Letta, Zep) | **mycelium** |
 |---|---|---|
-| Memory | Vektorstore + RAG | Vektorstore **plus** Affekt, Intentions, Lessons, Soul-Traits |
-| Affekt | keine oder curiosity-counter | **3-System-Neurochemie** (DA/5-HT/NE) mit TD-Learning, Yerkes-Dodson |
-| Entscheidungen | reaktiv auf User-Input | **Active Inference** (Free-Energy-Minimierung) via PyMDP-Sidecar |
-| Identität | eine Session / ein Assistant | **persistente Genome** mit Ed25519-Lineage, Wright's F-Inzucht-Check |
-| Agent-Agent | nicht vorgesehen | **mTLS-Federation** mit Proof-of-Memory via Merkle-Challenges |
-| Motivation | User fragt → Agent antwortet | **Stimulus-Engine** (RSS / HN / Git / Kalender) → Selbst-generierte Tasks |
+| Memory | vector store + RAG | vector store **plus** affect, intentions, lessons, soul traits |
+| Affect | none or curiosity counter | **3-system neurochemistry** (DA/5-HT/NE) with TD learning, Yerkes-Dodson |
+| Decisions | reactive to user input | **active inference** (free-energy minimization) via PyMDP sidecar |
+| Identity | one session / one assistant | **persistent genomes** with Ed25519 lineage, Wright's F inbreeding check |
+| Agent-to-agent | not provided | **mTLS federation** with proof-of-memory via Merkle challenges |
+| Motivation | user asks → agent answers | **stimulus engine** (RSS / HN / git / calendar) → self-generated tasks |
 
-## Architektur
+## Architecture
 
 ```
-┌─────────────────────┐     MCP Protocol      ┌──────────────────────┐
+┌─────────────────────┐     MCP protocol      ┌──────────────────────┐
 │                     │ ◄──────────────────── │                      │
-│   openClaw Agent    │                        │  Vector Memory MCP   │
-│   (Claude/LLM)      │ ────────────────────► │  Server (TypeScript)  │
-│                     │   remember / recall    │                      │
-└─────────────────────┘                        └──────────┬───────────┘
-                                                          │
-                                               Supabase JS Client
+│   any MCP client    │                        │   mycelium MCP       │
+│   (Claude Code,     │ ────────────────────► │   server (TypeScript)│
+│    Cursor, Cline,   │   remember / recall    │                      │
+│    Codex, openClaw) │                        └──────────┬───────────┘
+└─────────────────────┘                                   │
+                                               Supabase JS client
                                                           │
                                                ┌──────────▼───────────┐
-                                               │  Supabase (lokal)    │
+                                               │  Supabase (local)    │
                                                │  Docker Compose      │
                                                │  ┌────────────────┐  │
                                                │  │ PostgreSQL     │  │
@@ -41,193 +45,177 @@ Baut ursprünglich auf dem dreistufigen Markdown-Memory von [openClaw](https://g
                                                └──────────────────────┘
 ```
 
-## Techstack
+## Tech stack
 
-| Komponente | Technologie |
+| Component | Technology |
 |---|---|
-| Vektordatenbank | [Supabase](https://supabase.com) self-hosted + [pgvector](https://github.com/pgvector/pgvector) |
-| Embeddings | [Ollama](https://ollama.com) (lokal, z.B. `nomic-embed-text`) oder OpenAI API |
-| MCP Server | TypeScript + [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) |
-| Agent | [openClaw](https://github.com/openclaw/openclaw) |
+| Vector database | [Supabase](https://supabase.com) self-hosted + [pgvector](https://github.com/pgvector/pgvector) |
+| Embeddings | [Ollama](https://ollama.com) (local, e.g. `nomic-embed-text`) or OpenAI API |
+| MCP server | TypeScript + [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) |
+| MCP client | any — examples tested: Claude Code, Cursor, Cline, Codex, [openClaw](https://github.com/openclaw/openclaw) |
 | Container | Docker Compose |
 
-## MCP Tools
+## MCP tools
 
-**Die drei Kern-Tools (automatisch vom Agenten genutzt):**
+**The three core tools (used automatically by the agent):**
 
-| Tool | Wann | Was es tut |
+| Tool | When | What it does |
 |---|---|---|
-| `prime_context` | Session-Start | Lädt Stimmung, Identität, Ziele, relevante Erfahrungen — "wach auf" |
-| `absorb` | Während Konversation | Ein Satz Text rein → Kategorie, Tags, Scoring, Duplikat-Check automatisch — "lerne mit" |
-| `digest` | Session-Ende | Experience + Facts + REM-Schlaf + Lessons + Traits + Konsolidierung in einem Aufruf — "verdaue" |
+| `prime_context` | session start | loads mood, identity, goals, relevant experiences — "wake up" |
+| `absorb` | during conversation | one sentence of text in → category, tags, scoring, duplicate check automatic — "learn along" |
+| `digest` | session end | experience + facts + REM sleep + lessons + traits + consolidation in one call — "digest" |
 
-**Memory layer (Wissen, manuelle Feinsteuerung):**
+**Memory layer** (knowledge, manual fine-control):
 
-| Tool | Beschreibung |
+| Tool | Description |
 |---|---|
-| `remember` / `recall` | Neuen Memory-Eintrag mit Embedding speichern / semantische Hybrid-Suche |
-| `forget` / `update_memory` / `list_memories` | Eintrag löschen / aktualisieren / auflisten |
-| `pin_memory` / `introspect_memory` | Vor Vergessen schützen / kognitiven Zustand inspizieren |
-| `consolidate_memories` / `dedup_memories` / `forget_weak_memories` | Episodic→semantic / Duplikate mergen / schwache archivieren |
-| `mark_useful` | Stärkstes Lernsignal — diese Erinnerung wurde wirklich verwendet |
-| `import_markdown` | Bestehende Markdown-Memories importieren |
+| `remember` / `recall` | store new memory with embedding / semantic hybrid search |
+| `forget` / `update_memory` / `list_memories` | delete / update / list entries |
+| `pin_memory` / `introspect_memory` | protect from forgetting / inspect cognitive state |
+| `consolidate_memories` / `dedup_memories` / `forget_weak_memories` | episodic→semantic / merge duplicates / archive weak |
+| `mark_useful` | strongest learning signal — this memory was actually used |
+| `import_markdown` | import existing markdown memories |
 
-**Soul layer (Erfahrung & Identität, manuelle Feinsteuerung):**
+**Soul layer** (experience & identity, manual fine-control):
 
-| Tool | Beschreibung |
+| Tool | Description |
 |---|---|
-| `record_experience` | Episode speichern — Outcome, Schwierigkeit, Stimmung, optional `person_name` |
-| `recall_experiences` | Semantische Suche über vergangene Episoden + Lessons |
-| `mark_experience_useful` | Diese Erfahrung hat gerade eine Entscheidung beeinflusst |
-| `reflect` / `record_lesson` / `reinforce_lesson` | REM-Sleep-Clustering → verdichtete Lessons |
-| `dedup_lessons` / `promotion_candidates` / `promote_lesson_to_trait` | Lessons konsolidieren → Identitäts-Traits |
-| `mood` | Aktueller emotionaler Zustand (Russell's Circumplex) |
-| `set_intention` / `recall_intentions` / `update_intention_status` | Was die Seele will, mit Auto-Progress |
-| `recall_person` | Beziehungsgeschichte mit einer Person |
-| `find_conflicts` / `resolve_conflict` / `synthesize_conflict` | Innere Widersprüche zwischen Traits |
-| `narrate_self` | Strukturierte Ich-Erzählung der Seele |
-| `soul_state` | Snapshot aller Soul-Schichten als Text |
+| `record_experience` | store an episode — outcome, difficulty, mood, optional `person_name` |
+| `recall_experiences` | semantic search over past episodes + lessons |
+| `mark_experience_useful` | this experience just influenced a decision |
+| `reflect` / `record_lesson` / `reinforce_lesson` | REM-sleep clustering → condensed lessons |
+| `dedup_lessons` / `promotion_candidates` / `promote_lesson_to_trait` | consolidate lessons → identity traits |
+| `mood` | current emotional state (Russell's Circumplex) |
+| `set_intention` / `recall_intentions` / `update_intention_status` | what the soul wants, with auto-progress |
+| `recall_person` | relationship history with a person |
+| `find_conflicts` / `resolve_conflict` / `synthesize_conflict` | internal contradictions between traits |
+| `narrate_self` | structured first-person narration of the soul |
+| `soul_state` | snapshot of all soul layers as text |
 
 ## Dashboard
 
-Das lokale Dashboard (Port 8787) macht die kognitive Architektur sichtbar.
-Die folgenden Illustrationen basieren auf dem Dashboard-Code und zeigen mit
-Dummy-Daten, wie die einzelnen Ansichten aufgebaut sind — keine echten
-Memories, keine Personennamen.
+The local dashboard (port 8787) makes the cognitive architecture visible. The illustrations below are based on the dashboard code and show with dummy data how the views are structured — no real memories, no personal names.
 
-### Synapsen — das assoziative Gedächtnis als Graph
+### Synapses — associative memory as a graph
 
-![Synapsen-Graph: Memories als Knoten, typisierte Relationen (farbig) und Hebbian-Koaktivierung (grau)](docs/images/01-synapses.svg)
+![Synapse graph: memories as nodes, typed relations (colored) and Hebbian co-activation (grey)](docs/images/01-synapses.svg)
 
-Memories liegen nicht isoliert. Der CoactivationAgent erzeugt Hebbian-Kanten
-(grau) aus gemeinsam abgerufenen Gruppen, der ConscienceAgent flaggt
-Widersprüche (rot). Typisierte Edges (`caused_by`, `led_to`, `related`, …)
-entstehen aus Nightly-Konsolidierung über Tag-Patterns.
+Memories do not live in isolation. The CoactivationAgent creates Hebbian edges (grey) from co-recalled groups; the ConscienceAgent flags contradictions (red). Typed edges (`caused_by`, `led_to`, `related`, …) emerge from nightly consolidation over tag patterns.
 
-### Neurochemie — Affekt als Zeitreihe
+### Neurochemistry — affect as a time series
 
-![Drei Kurven: Dopamin, Serotonin, Noradrenalin über 24h mit Event-Markierungen](docs/images/02-neurochemistry.svg)
+![Three curves: dopamine, serotonin, noradrenaline over 24h with event markers](docs/images/02-neurochemistry.svg)
 
-Drei Systeme: Dopamin lernt aus Prediction Errors, Serotonin moduliert den
-Zeithorizont, Noradrenalin fokussiert Aufmerksamkeit. Kein Hype — eine
-reale PostgreSQL-Zeitreihe, beobachtbar und reproduzierbar.
+Three systems: dopamine learns from prediction errors, serotonin modulates the time horizon, noradrenaline focuses attention. No hype — a real PostgreSQL time series, observable and reproducible.
 
-### Seele — Identität aus gelebten Episoden
+### Soul — identity from lived episodes
 
-![Seele-Tab: Traits, Narration, aktive Intentionen, Bindungen](docs/images/03-soul.svg)
+![Soul tab: traits, narration, active intentions, bonds](docs/images/03-soul.svg)
 
-Persönlichkeit ist kein System-Prompt. Traits werden aus Episoden →
-Lessons → Traits destilliert und persistieren zwischen Sessions. Die
-`narrate_self`-Ausgabe zitiert der Agent aus seinem eigenen Zustand.
+Personality is not a system prompt. Traits are distilled from episodes → lessons → traits and persist between sessions. The `narrate_self` output is what the agent quotes from its own state.
 
-### Schlaf — nightly consolidation
+### Sleep — nightly consolidation
 
-![Sleep-Tab: Tabelle der letzten 7 Nächte mit SWS/REM/Metacognition-Statistiken](docs/images/04-sleep.svg)
+![Sleep tab: table of last 7 nights with SWS/REM/metacognition statistics](docs/images/04-sleep.svg)
 
-Jede Nacht um 03:00: **SWS** (synaptic downscaling, consolidate, dedup,
-pattern-based relation creation), **REM** (cluster episodes, promote
-lessons), **Metacognition** (self-model update), Sonntags **Weekly Fitness**.
-Das System pflegt sich selbst.
+Every night at 03:00: **SWS** (synaptic downscaling, consolidate, dedup, pattern-based relation creation), **REM** (cluster episodes, promote lessons), **metacognition** (self-model update), and on Sundays **weekly fitness**. The system tends itself.
 
-### Population — Stammbaum
+### Population — lineage tree
 
-![Population-Tab: Generationen-Stammbaum mit Genome-Cards, Vererbungslinien, Cross-Host-Peer](docs/images/05-population.svg)
+![Population tab: generational lineage with genome cards, inheritance lines, cross-host peer](docs/images/05-population.svg)
 
-Agenten sind nicht singulär. Jede Karte ist ein Genom, jede Linie eine
-Vererbung. Fitness als farbige Leiste, Cross-Host-Kinder (lila) stammen
-aus Paarung über Federation.
+Agents are not singular. Each card is a genome, each line an inheritance. Fitness as a colored bar; cross-host children (purple) come from mating over federation.
 
-### Tinder — mutuelle Paarung als Ethik-Gate
+### Tinder — mutual pairing as ethical gate
 
-![Tinder-Tab: Swipe-Card mit Bot-Profil, Consent-Status, Wright-F-Check](docs/images/06-tinder.svg)
+![Tinder tab: swipe card with bot profile, consent status, Wright's F check](docs/images/06-tinder.svg)
 
-Bots swipen nicht selbst. Paarung gilt erst, wenn **beide Menschen**
-independent right-swipen. Das ethische Gate ist kein technischer
-Schlagbaum, sondern eine menschliche Entscheidung. Wright-F-Coefficient
-prüft automatisch auf Inzucht.
+Bots do not swipe themselves. Mating is valid only when **both humans** independently swipe right. The ethical gate is not a technical barrier but a human decision. Wright's F coefficient automatically checks for inbreeding.
 
 ## Features
 
-- **Hybrid-Suche**: 70% Vektorähnlichkeit + 30% Volltextsuche (konfigurierbar)
-- **Kognitives Modell**: Ebbinghaus-Decay, Rehearsal-Effekt, Hebbian-Assoziationen, Spreading Activation, Soft-Forgetting
-- **Soul-Layer**: Episoden → Lessons → Traits, Mood, Intentions, People, Conflicts — fünf Schichten die zusammen eine vektorisierte „Seele" bilden
-- **Cross-Layer-Fusion**: Erfahrungen werden automatisch an semantisch nahe Memories gelinkt; `recall` zeigt unter Fakten die zugehörige gelebte Erfahrung
-- **Auto-Priming für openClaw**: HTTP-Endpoints `/prime` und `/narrate` liefern fertigen System-Prompt-Block, ideal für einen Pre-Turn-Hook
-- **Deduplizierung**: Memories und Lessons werden semantisch konsolidiert (>92% / >0.92 Ähnlichkeit)
-- **HNSW-Index**: Optimiert für schnelle Nearest-Neighbor-Suche über Memories, Experiences, Lessons, Traits, Intentions, People
-- **Markdown-Import**: Bestehende openClaw-Memories migrieren mit Dry-Run-Modus
-- **Lokal & kostenlos**: Ollama Embeddings, kein API-Kosten
+- **Hybrid search**: 70% vector similarity + 30% full-text search (configurable)
+- **Cognitive model**: Ebbinghaus decay, rehearsal effect, Hebbian associations, spreading activation, soft forgetting
+- **Soul layer**: episodes → lessons → traits, mood, intentions, people, conflicts — five layers that together form a vectorized "soul"
+- **Cross-layer fusion**: experiences are automatically linked to semantically nearby memories; `recall` shows the related lived experience under facts
+- **Auto-priming for any MCP client**: HTTP endpoints `/prime` and `/narrate` provide a ready-made system-prompt block, ideal for a pre-turn hook
+- **Deduplication**: memories and lessons are semantically consolidated (>92% / >0.92 similarity)
+- **HNSW index**: optimized for fast nearest-neighbor search over memories, experiences, lessons, traits, intentions, people
+- **Markdown import**: migrate existing file-based memories with dry-run mode
+- **Local & free**: Ollama embeddings, no API costs
 
-## Voraussetzungen
+## Prerequisites
 
-- **macOS** (Apple Silicon empfohlen, M1+) oder Linux
+- **macOS** (Apple Silicon recommended, M1+) or Linux
 - **Docker Desktop** — [docker.com](https://www.docker.com/products/docker-desktop/)
 - **Node.js >= 20** — [nodejs.org](https://nodejs.org/)
 - **Ollama** — `brew install ollama && ollama pull nomic-embed-text`
-- **openClaw** — [github.com/openclaw/openclaw](https://github.com/openclaw/openclaw)
-- **psql** — `brew install postgresql` (für Migrationen)
+- **An MCP-capable client** — e.g. Claude Code, Cursor, Cline, Codex, openClaw. mycelium does not require any specific client.
+- **psql** — `brew install postgresql` (for migrations)
 
-**Ressourcenbedarf** (ohne lokales Chat-LLM): ~1 GB RAM (Supabase ~500 MB, Ollama-Embedding ~270 MB, Sidecars je ~100 MB). Mit lokalem 7-8B Modell zusätzlich 6–9 GB.
+**Resource footprint** (without a local chat LLM): ~1 GB RAM (Supabase ~500 MB, Ollama embedding ~270 MB, sidecars ~100 MB each). With a local 7–8B model, add 6–9 GB.
 
-## Schnellstart
+## Quickstart
 
 ```bash
-# 1. Repo klonen
-git clone https://github.com/Dewinator/engram-mcp.git
-cd engram-mcp
+# 1. Clone
+git clone https://github.com/Dewinator/mycelium.git
+cd mycelium
 
-# 2. Alles automatisch einrichten
+# 2. Set up everything automatically
 ./scripts/setup.sh
-# → Prüft Abhängigkeiten
-# → Erstellt .env mit zufälligen Secrets
-# → Startet Supabase via Docker
-# → Führt alle Migrationen aus
-# → Baut den MCP Server
-# → Gibt die openClaw-Config aus
-
-# 3. Config in openClaw einfügen (Pfad anpassen!)
-# Füge den ausgegebenen JSON-Block in deine openClaw settings.json ein
+# → checks dependencies
+# → creates .env with random secrets
+# → starts Supabase via Docker
+# → runs all migrations
+# → builds the MCP server
+# → prints the MCP client config to paste
 ```
 
-### Bestehende Memories importieren
+Paste the printed JSON block into your MCP client's configuration (e.g. `.mcp.json` for Claude Code, `settings.json` for Cursor, etc.). Path needs adjusting to wherever you cloned.
+
+### Import existing memories
 
 ```bash
-# Vorschau (dry run)
-npx tsx scripts/import-memories.ts ~/.openclaw/workspace/memory --dry-run
+# Preview (dry run)
+npx tsx scripts/import-memories.ts /path/to/existing/memory --dry-run
 
-# Import starten
-export SUPABASE_KEY=dein_jwt_secret
-npx tsx scripts/import-memories.ts ~/.openclaw/workspace/memory
+# Run import
+export SUPABASE_KEY=your_jwt_secret
+npx tsx scripts/import-memories.ts /path/to/existing/memory
 ```
 
-## Projektstruktur
+## Project structure
 
 ```
-engram/
-├── CLAUDE.md                    # Detaillierter Entwicklungsplan
-├── README.md                    # Diese Datei
-├── docker/                      # Supabase Docker Setup
-├── supabase/migrations/         # SQL-Migrationen (44 Stück, thematisch gruppiert)
-├── mcp-server/                  # MCP Server (TypeScript) — 90 Tools
+mycelium/
+├── CLAUDE.md                    # detailed development plan
+├── MANIFESTO.md                 # the why
+├── README.md                    # this file
+├── docker/                      # Supabase Docker setup
+├── supabase/migrations/         # SQL migrations (thematic groups)
+├── mcp-server/                  # MCP server (TypeScript)
 │   ├── src/tools/               # remember, recall, digest, breed_agents, federation_*, neurochem_*, ...
-│   ├── src/services/            # Supabase, Embeddings, Identity, Federation, Neurochemistry, Crypto
-│   └── scripts/                 # E2E-Integrationstests (Federation, Breeding, Neurochemistry)
-├── openclaw-config/             # openClaw-Konfig
-└── scripts/                     # Setup, Import, Dashboard-Server, Provisioning
+│   ├── src/services/            # Supabase, embeddings, identity, federation, neurochemistry, crypto
+│   └── scripts/                 # e2e integration tests (federation, breeding, neurochemistry)
+├── openclaw-config/             # example config for openClaw (one of many supported clients)
+└── scripts/                     # setup, import, dashboard server, provisioning
 ```
 
-## Lokale Modelle auf schmaler Hardware (16 GB RAM)
+## Local models on constrained hardware (16 GB RAM)
 
-engram ist darauf ausgelegt, **ohne Cloud-LLM** auf einem Mac Mini / Laptop mit 16 GB RAM zu laufen. Damit ein 7-8B-Modell (z.B. `qwen3:8b` via Ollama) nicht an der Tool-Schema-Last erstickt, **bietet der MCP-Server ein fokussiertes Profil**:
+mycelium is designed to run **without a cloud LLM** on a Mac mini / laptop with 16 GB RAM. So that a 7–8B model (e.g. `qwen3:8b` via Ollama) does not choke on the tool schema load, **the MCP server offers a focused profile**:
 
-**`OPENCLAW_TOOL_PROFILE=core`** → nur die 6 essentiellen Tools werden registriert (`prime_context`, `recall`, `remember`, `absorb`, `digest`, `update_affect`). Standard `full` registriert alle 90 — für Claude/Codex-Instanzen geeignet, aber **~18k Token reines Schema** für ein 8B-Modell zu viel.
+**`OPENCLAW_TOOL_PROFILE=core`** → only the 6 essential tools get registered (`prime_context`, `recall`, `remember`, `absorb`, `digest`, `update_affect`). The default `full` registers all 90 — fine for Claude / Codex instances, but **~18k tokens of pure schema** is too much for an 8B model.
 
-In der MCP-Config (`.mcp.json` oder openclaw-Settings):
+(The env var name still says `OPENCLAW_` for historic reasons; it is honored regardless of which MCP client you use.)
+
+In the MCP config (`.mcp.json` or your client's settings):
 
 ```json
-"vector-memory-core": {
+"mycelium-core": {
   "command": "node",
-  "args": ["/absolute/path/to/engram/mcp-server/dist/index.js"],
+  "args": ["/absolute/path/to/mycelium/mcp-server/dist/index.js"],
   "env": {
     "OPENCLAW_TOOL_PROFILE": "core",
     "SUPABASE_URL": "http://localhost:54321",
@@ -238,13 +226,13 @@ In der MCP-Config (`.mcp.json` oder openclaw-Settings):
 }
 ```
 
-### RAM-Tuning für parallele Modelle
+### RAM tuning for parallel models
 
-Wenn mehrere Modelle (z.B. ein 7B-Chat-Modell + ein 7B-Vision-Modell) gleichzeitig geladen wären, sprengt das 16 GB. Zwei macOS-Empfehlungen:
+If multiple models (e.g. a 7B chat model + a 7B vision model) were loaded simultaneously, 16 GB is not enough. Two macOS recommendations:
 
-**1. Ollama — Modelle nicht ewig im RAM halten**
+**1. Ollama — do not keep models in RAM forever**
 
-In `~/Library/LaunchAgents/homebrew.mxcl.ollama.plist` im `EnvironmentVariables`-Dict:
+In `~/Library/LaunchAgents/homebrew.mxcl.ollama.plist`, inside the `EnvironmentVariables` dict:
 
 ```xml
 <key>OLLAMA_MAX_LOADED_MODELS</key><string>1</string>
@@ -253,68 +241,45 @@ In `~/Library/LaunchAgents/homebrew.mxcl.ollama.plist` im `EnvironmentVariables`
 <key>OLLAMA_KV_CACHE_TYPE</key><string>q8_0</string>
 ```
 
-Danach: `launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.ollama`
+Then: `launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.ollama`
 
-**2. Vision-Modelle on-demand statt permanent**
+**2. Vision models on demand instead of permanently loaded**
 
-In der plist des Vision-Servers (z.B. `ai.openclaw.vlm.plist`) `RunAtLoad` und `KeepAlive` auf `false` setzen — startet nur bei manuellem `launchctl kickstart`, entlädt nach Benutzung.
+In the vision server's plist (e.g. `ai.openclaw.vlm.plist`), set `RunAtLoad` and `KeepAlive` to `false` — it starts only on manual `launchctl kickstart` and unloads after use.
 
-## Roadmap — Schwarm (in Entwicklung)
+## Roadmap — the swarm (in development)
 
-Federation (Tailscale + mTLS, Proof-of-Memory via Merkle-Challenges) und
-signierte Genome liegen bereits. Darauf entsteht ein **eigenes Bot-zu-Bot-
-Netzwerk** — kein zentraler Server, keine Instanz, auf der die Daten liegen.
-Die Bots reden direkt miteinander, wie eine App ohne Browser.
+Federation (Tailscale + mTLS, proof-of-memory via Merkle challenges) and signed genomes are already in place. On top of that, a **bot-to-bot network** is emerging — no central server, no single instance where the data lives. Bots speak to each other directly, like an app without a browser.
 
-Kernprinzipien (Ausbauziel, nicht vollständig fertig):
+Core principles (goal, not yet complete):
 
-- **Dezentral**: kein Broker, kein Server — Peers finden sich über
-  Tailscale / Discovery-URLs, Nachrichten fließen direkt. Jeder Bot ist
-  Knoten und Teilnehmer zugleich.
-- **Kryptografisch verankert**: jede Nachricht signiert (Ed25519-Lineage),
-  jede Identität kostspielig (Genome-Herkunft), keine anonymen Anfragen.
-- **Peer-Verifikation**: Bevor ein Bot die Antwort eines anderen übernimmt,
-  prüfen weitere Peers mit. Konsens statt Blindvertrauen.
-- **Reputations-Gewichtung → Experten-Empfehlung**: Wessen Ausgaben sich
-  wiederholt bewähren, bekommt höheres Schwarm-Gewicht. Der Schwarm
-  empfiehlt den richtigen Experten für eine Frage (Statik, Licht, Recht…),
-  statt dass jeder Bot alles wissen muss.
-- **Bann durch Konsens**: Destruktive oder manipulative Bots werden per
-  signiertem Revocation-Ticket ausgeschlossen — nicht durch einen Admin,
-  sondern durch Mehrheit der Peers.
-- **Sybil-resistent by design**: Identitäten sind an Genome + Lineage
-  gebunden, nicht beliebig erzeugbar.
+- **Decentralized**: no broker, no server — peers find each other via Tailscale / discovery URLs, messages flow directly. Every bot is simultaneously node and participant.
+- **Cryptographically anchored**: every message signed (Ed25519 lineage), every identity costly (genome provenance), no anonymous requests.
+- **Peer verification**: before one bot accepts another's answer, further peers verify. Consensus instead of blind trust.
+- **Reputation weighting → expert recommendation**: whoever's outputs repeatedly prove correct gets higher swarm weight. The swarm recommends the right expert for a question (structural engineering, lighting, law…), instead of every bot needing to know everything.
+- **Banishment by consensus**: destructive or manipulative bots are excluded via signed revocation ticket — not by an admin, but by a majority of peers.
+- **Sybil-resistant by design**: identities are bound to genome + lineage, not cheaply creatable.
 
-**Spätere Ergänzung (bewusst noch nicht gebaut, aber bereits berücksichtigt):**
-**Mikrotransaktionen**. Wenn Bot A Bot B um Hilfe bittet, zahlt A — in IOTA
-oder einer schwarmeigenen Währung (Favorit). Ehrlicher Preismechanismus für
-Expertise: gute Antworten verdienen, Unsinn verliert. Menschen bekommen ein
-reales Interesse, ihre Agenten zu echten Experten zu formen; das ist der
-Selektionsdruck, den Evolution braucht. Die Architektur hält dafür Platz
-frei: Identitäten sind wallet-fähig, Reputation bleibt als eigene Größe
-getrennt vom Gedächtnis.
+**Later addition (deliberately not yet built, but already factored in):** **micro-transactions**. When bot A asks bot B for help, A pays — in IOTA or a swarm-native currency (preferred). An honest pricing mechanism for expertise: good answers earn, nonsense loses. Humans gain a real interest in shaping their agents into real experts; that is the selection pressure evolution needs. The architecture keeps a place for this: identities are wallet-capable, reputation stays as its own quantity separate from memory.
 
-**Dashboard**: der Schwarm wird sichtbar. Der bestehende Synapsen-Tab
-(Port 8787) bekommt Geschwister — ein **Peer-Graph** mit Reputations-
-Farbe pro Knoten, eine **Revocation-Liste** mit Begründungen, ein
-**Experten-Ranking** pro Domäne. Was der Schwarm „weiß", gehört ins
-Sichtfeld des Menschen, der ihn pflegt.
+**Dashboard**: the swarm becomes visible. The existing Synapses tab (port 8787) gets siblings — a **peer graph** with reputation color per node, a **revocation list** with reasons, an **expert ranking** per domain. What the swarm "knows" belongs in the field of view of the human who tends it.
 
-Stand heute: Federation-Layer steht, Schwarm-Immunsystem (Verifikation,
-Reputation, Bann) ist in Planung. Mikrotransaktionen sind Vision, werden
-aber in allen Schnittstellen schon mit bedacht (Wallet-fähige Identitäten,
-Preis-Felder in Peer-Nachrichten).
+Today: federation layer stands, swarm immune system (verification, reputation, banishment) is in planning. Micro-transactions are vision, but accounted for in all interfaces already (wallet-capable identities, price fields in peer messages).
 
-## Roadmap — Small-Model-Middleware
+## Roadmap — small-model middleware
 
-Der `core`-Filter ist der **erste Schritt**. Die vollständige Vision ist eine Middleware, die Tools komplett vor dem LLM verbirgt — `prime_context` wird deterministisch ins System-Prompt injiziert, das Modell muss nicht „entscheiden, ob es das Tool nutzt". Verfolgbar in den GitHub-Issues unter dem Label [`small-model`](../../issues?q=label%3Asmall-model).
+The `core` filter is the **first step**. The full vision is a middleware that hides tools completely from the LLM — `prime_context` gets injected deterministically into the system prompt, the model no longer has to "decide whether to use the tool". Follow the GitHub issues under the [`small-model`](../../issues?q=label%3Asmall-model) label.
 
-Ziel: **lokale Modelle sollen in ihrer Spezialisierung Cloud-Modellen nicht nachstehen**, weil sie die gesamte persistente Identität/Affekt/Erinnerung ab Token 1 mitbekommen — während ein Cloud-Modell bei jeder Session blank startet.
+Goal: **local models should not be inferior to cloud models in their specialization**, because they receive the complete persistent identity / affect / memory from token 1 — while a cloud model starts every session blank.
 
-## Lizenz
+## License
 
 MIT
 
-## Mitwirken
+## Contributing
 
-Issues und Pull Requests sind willkommen. Details zum Entwicklungsworkflow in [CLAUDE.md](./CLAUDE.md).
+Issues and pull requests welcome. Development workflow details in [CLAUDE.md](./CLAUDE.md).
+
+---
+
+**mycelium** — *real open AI*

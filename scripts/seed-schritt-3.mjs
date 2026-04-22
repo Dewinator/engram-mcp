@@ -39,7 +39,7 @@ if (!project) {
     SLUG,
     "Vectormemory — Schritt 3: JIT Tool Discovery",
     "Make small-context local models viable as full agents by indexing the tool registry as memories and looking tools up semantically at use-time, instead of prefilling the entire tool schema in every session.",
-    { related_repos: ["vectormemory-openclaw"] }
+    { related_repos: ["mycelium"] }
   );
   console.log("Created project:", project.slug, project.id);
 } else {

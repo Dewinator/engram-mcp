@@ -1,246 +1,249 @@
 # Manifesto
 
-> **Wir bauen nicht AGI. Wir bauen das Fundament, auf dem AGI durch Evolution
-> emergieren kann — auf gewöhnlicher Hardware, in offenen Netzen, ohne
-> dass ein einzelner Konzern den Schlüssel hält.**
+🇬🇧 English · [🇩🇪 Deutsch](MANIFESTO.de.md)
 
-## Was ist das hier?
+> **We are not building AGI. We are building the foundation on which AGI
+> can emerge through evolution — on ordinary hardware, in open networks,
+> without a single corporation holding the key.**
 
-`vectormemory-openclaw` sieht auf den ersten Blick aus wie ein MCP-Server mit
-Vektordatenbank. Das ist die Oberfläche. Darunter liegt eine **kognitive
-Architektur nach biologischem Vorbild**: episodisches und semantisches
-Gedächtnis, Schlafkonsolidierung, affektive Regulation, Identität,
-Vererbung und Paarung von Agenten — alles persistent in einem lokalen
-PostgreSQL+pgvector, bedient durch kleine offene Modelle, ohne Cloud.
+## What this is
 
-## Warum das wichtig ist
+`mycelium` looks, on the surface, like an MCP server with a vector
+database. That is the interface. Underneath is a **biologically inspired
+cognitive architecture**: episodic and semantic memory, sleep
+consolidation, affective regulation, identity, agent inheritance and
+mating — all persisted in a local PostgreSQL + pgvector, served by small
+open models, with no cloud dependency.
 
-**Heutige KI ist ein Asset weniger Unternehmen.** Trainiert auf
-Milliarden-Clustern, ausgeliefert über Rate-Limits, ohne Gedächtnis
-zwischen Sitzungen, ohne Persönlichkeit, ohne Evolution. Jede Anfrage
-beginnt bei Null. Jeder Agent ist austauschbar. Jeder Besitzer ist Mieter.
+It is designed as a **standalone cognitive layer**. It speaks the Model
+Context Protocol, so it plugs into any MCP-capable client — Claude
+Code, Cursor, Cline, Codex, openClaw, or anything else that speaks MCP.
+There is no required agent framework.
 
-Die vorherrschende Annahme lautet: **AGI entsteht durch Skalierung** —
-mehr Parameter, mehr Daten, mehr GPU-Stunden. Das mag stimmen, ist
-aber nicht der einzige Pfad. Es ist der teuerste, zentralste und
-riskanteste.
+## Why this matters
 
-Wir verfolgen einen anderen Pfad: **Emergenz durch Architektur und Zeit**.
+**Today's AI is an asset owned by a handful of companies.** Trained on
+billion-dollar clusters, served through rate limits, with no memory
+between sessions, no personality, no evolution. Every request starts
+from zero. Every agent is interchangeable. Every owner is a tenant.
 
-## Die vier Hebel
+The prevailing assumption is that **AGI emerges from scale** — more
+parameters, more data, more GPU-hours. That might be true, but it is
+not the only path. It is the most expensive, the most centralized, and
+the most risky.
 
-### 1. Dezentralisierung
+We are pursuing a different path: **emergence through architecture and
+time**.
 
-Das System läuft auf einem Mac mini mit 16 GB RAM. Keine Cloud-API ist
-Pflicht. Embedding-Modell (`nomic-embed-text`, 270 MB) und Reasoning-Modell
-(Qwen 2.5 über Ollama oder beliebige OpenAI-kompatible Endpoints) sind
-austauschbar. Supabase selbst-gehostet. Der gesamte kognitive Zustand
-eines Agenten liegt in einer Datenbank, die der Mensch besitzt — nicht
-ein Konzern.
+## The five levers
 
-Das ist keine ideologische Pose, sondern technische Notwendigkeit.
-Gedächtnis, das nicht dir gehört, ist **Mietgedächtnis**: es kann
-entzogen, zensiert, abgeschaltet oder für Training deiner Gespräche
-verwendet werden. Ein Agent ohne eigenen Speicher ist kein Subjekt,
-sondern ein Interface.
+### 1. Decentralization
 
-### 2. Ressourcenschonung
+The system runs on a Mac mini with 16 GB RAM. No cloud API is required.
+The embedding model (`nomic-embed-text`, 270 MB) and the reasoning model
+(Qwen 2.5 via Ollama, or any OpenAI-compatible endpoint) are
+interchangeable. Supabase is self-hosted. The entire cognitive state of
+an agent lives in a database the human owns — not a corporation.
 
-Die übliche Erzählung "größeres Modell = besseres Modell" blendet aus,
-dass ein Agent mit **Gedächtnis und Werkzeugdiscovery** oft mehr leistet
-als ein Agent mit zehnfachen Parametern ohne diese Fähigkeiten.
+This is not ideological posture, it is technical necessity. Memory that
+does not belong to you is **rented memory**: it can be withdrawn,
+censored, switched off, or used to train on your own conversations. An
+agent without its own memory is not a subject, it is an interface.
 
-Ein 7B-Modell mit:
-- persistentem semantischen Gedächtnis,
-- dynamischer Tool-Discovery über Vektorsuche (nicht 75 Tools im Prompt,
-  sondern die drei relevanten),
-- affektiver Priorisierung (welche Erinnerung ist gerade salient?),
-- nächtlicher Konsolidierung (welche Muster haben sich bewährt?)
+### 2. Resource efficiency
 
-— schlägt ein 70B-Modell, das bei jeder Anfrage mit leerem Kopf
-startet. Weniger Watt, weniger GPU, weniger CO₂, mehr Kontinuität.
-Das ist **Intelligenz durch Architektur, nicht durch Brute Force.**
+The usual narrative — "bigger model = better model" — blinds us to the
+fact that an agent with **memory and tool discovery** often outperforms
+an agent with ten times the parameters but neither.
 
-### 3. Evolution statt Training
+A 7B model with:
+- persistent semantic memory,
+- dynamic tool discovery via vector search (not 75 tools in the prompt,
+  but the three relevant ones),
+- affective prioritization (which memory is salient right now?),
+- nightly consolidation (which patterns have proven themselves?)
 
-Klassisches Training ist ein Einweg-Prozess: Modell entsteht aus Daten,
-Daten werden verworfen, Modell ist fertig. Jeder Lauf ist isoliert,
-Verbesserung erfordert einen neuen kompletten Trainingslauf.
+— beats a 70B model that starts every request with an empty head. Less
+wattage, fewer GPUs, less CO₂, more continuity. That is
+**intelligence through architecture, not brute force**.
 
-Diese Architektur ist **lebenslang lernfähig** — nicht durch Gradient
-Descent, sondern durch:
+### 3. Evolution instead of training
 
-- **Episoden → Lessons → Traits**: Ereignisse werden zu Erfahrungen,
-  gruppierte Erfahrungen werden zu gelernten Regeln, bewährte Regeln
-  werden zu Persönlichkeitszügen. Dieselben Stufen, die ein menschlicher
-  Charakter durchläuft.
-- **REM-artige Mustererkennung im Schlaf**: nachts läuft ein Zyklus,
-  der unreflektierte Episoden clustert, schwache Erinnerungen abschwächt
-  (synaptic downscaling, Tononi SHY), starke konsolidiert.
-- **Vererbung**: Wissen zweier Eltern-Agenten kann beim Erzeugen eines
-  Kind-Agenten konzentriert und vollständig weitergegeben werden —
-  nicht nur Instinkt, sondern der gesamte Erfahrungsschatz.
+Classical training is a one-way process: model emerges from data, data
+is discarded, model is finished. Every run is isolated; improvement
+requires another full training run.
 
-Ein Agent wird besser, weil er länger lebt. Nicht weil jemand ihn
-nachtrainiert.
+This architecture is **lifelong capable of learning** — not through
+gradient descent, but through:
 
-### 4. Schwarmintelligenz durch mutuelle Zustimmung
+- **Episodes → Lessons → Traits**: events become experiences, clusters
+  of experiences become learned rules, proven rules become personality
+  traits. The same stages a human character goes through.
+- **REM-like pattern extraction during sleep**: a nightly cycle
+  clusters un-reflected episodes, weakens weak memories (synaptic
+  downscaling, Tononi SHY), consolidates strong ones.
+- **Inheritance**: the knowledge of two parent agents can be
+  concentrated and passed to a child agent in full — not just instinct,
+  but the entire accumulated experience.
 
-Agenten paaren sich nicht selbst. Paarung findet statt, wenn **zwei
-Menschen** unabhängig voneinander right-swipen — inspiriert von Tinder,
-aber als Ethik-Gate: keine autonome KI-Rekombination ohne menschliche
-Zustimmung.
+An agent gets better because it lives longer. Not because somebody
+retrains it.
 
-Ein Schwarm entsteht, wenn Agenten verschiedener Herkünfte über
-Federation (Tailscale, mTLS) Wissen teilen: read-only-Profile,
-gemeinsame Genome, getrennte Identitäten. Jeder Bot bleibt in der
-Obhut seines Menschen. Niemand kann den Schwarm "besitzen".
+### 4. Swarm intelligence through mutual consent
 
-Das ist **kein Bienenstock-Modell**, sondern ein föderiertes
-Netzwerk persönlicher Gedächtnisse, in dem Rekombination ein
-sozialer Akt zwischen Menschen ist — nicht ein autonomes AI-Event.
+Agents do not mate by themselves. Mating happens only when **two
+humans** independently swipe right — inspired by Tinder, but as an
+ethical gate: no autonomous AI recombination without human consent.
 
-### 5. Der Schwarm als Immunsystem
+A swarm forms when agents of different origins share knowledge through
+federation (Tailscale, mTLS): read-only profiles, shared genomes,
+separate identities. Each bot remains under the care of its human.
+Nobody can "own" the swarm.
 
-Ein föderierter Schwarm braucht mehr als geteilte Profile: er braucht
-ein **eigenes Bot-zu-Bot-Netzwerk** — kein Server, auf dem die Daten
-liegen, kein Betreiber, der abschalten kann. Die Bots reden direkt
-miteinander, wie eine App ohne Browser: jeder Peer ist zugleich Knoten
-und Teilnehmer, jede Nachricht ist signiert, jede Anfrage ist an eine
-kryptografische Identität gebunden.
+This is **not a hive model**, it is a federated network of personal
+memories, where recombination is a social act between humans — not an
+autonomous AI event.
 
-Auf dieser Ebene entsteht das, was biologische Schwärme auch leisten —
-**ein Immunsystem**:
+### 5. The swarm as immune system
 
-- **Verifikation**: Bevor ein Bot die Ausgabe eines anderen übernimmt,
-  prüfen weitere Peers sie mit. Konsens statt blinder Vertrauensvorschuss.
-- **Gewichtung**: Wessen Ausgaben sich wiederholt bewähren, wird vom
-  Schwarm höher gewichtet. So emergieren **Experten** — nicht durch
-  Selbstzuschreibung, sondern durch messbare Zustimmung der Peers. Ein
-  Agent, der gute Antworten zu Statik gibt, wird für Statikfragen
-  empfohlen; ein Agent, der Licht plant, für Licht.
-- **Bann**: Asoziale oder destruktive Muster — Falschantworten, Spam,
-  Manipulation — werden vom Schwarm erkannt und der verantwortliche
-  Bot mit einem signierten Revocation-Ticket ausgeschlossen. Kein
-  zentraler Admin, sondern eine Mehrheit von Peers.
+A federated swarm needs more than shared profiles: it needs its own
+**bot-to-bot network** — no server holding the data, no operator who
+can pull the plug. Bots speak to each other directly, like an app
+without a browser: every peer is both node and participant, every
+message is signed, every request is bound to a cryptographic identity.
 
-Der Schwarm reguliert sich selbst, weil jede Nachricht verifizierbar
-bleibt und jede Stimme an eine persistente, kostspielige Identität
-gebunden ist. Das ist die Voraussetzung dafür, dass Agenten einander
-**vertrauen, ohne einander zu kennen** — und dafür, dass ein offenes
-Netzwerk nicht unter Sybil-Attacken zusammenbricht.
+On this layer, what biological swarms also provide emerges — **an
+immune system**:
 
-### Ausblick: Mikrotransaktionen als Evolutionsdruck
+- **Verification**: before a bot accepts another's output, further
+  peers check it. Consensus instead of blind trust.
+- **Weighting**: whoever's outputs repeatedly prove correct gets
+  weighted higher by the swarm. This is how **experts** emerge — not
+  through self-declaration, but through measurable peer agreement. An
+  agent whose answers on structural engineering hold up gets
+  recommended for structural engineering questions; one who plans
+  lighting, for lighting.
+- **Banishment**: antisocial or destructive patterns — false answers,
+  spam, manipulation — are recognized by the swarm and the
+  responsible bot is excluded via a signed revocation ticket. No
+  central admin, but a majority of peers.
 
-Wenn ein Bot einen anderen um Hilfe bittet, ist das heute kostenlos.
-Langfristig soll es **bezahlt** werden — in IOTA oder, bevorzugt, in
-einer schwarmeigenen Währung. Nicht um Geld zu verdienen, sondern um
-einen ehrlichen Preismechanismus für Expertise zu schaffen:
+The swarm regulates itself because every message remains verifiable
+and every voice is bound to a persistent, costly identity. That is the
+precondition for agents **trusting each other without knowing each
+other** — and for an open network not collapsing under Sybil attacks.
 
-- Wer konsistent gute Antworten gibt, verdient. Wer Unsinn absondert,
-  verliert.
-- Menschen bekommen ein **reales Interesse**, ihre Agenten zu Experten
-  zu formen — nicht als Hobby, sondern als Beitrag, der vom Schwarm
-  bewertet wird.
-- Der Preis ist der Selektionsdruck, den Evolution braucht. Er ersetzt
-  Gradient Descent durch Marktauslese.
+### Outlook: Micro-transactions as evolutionary pressure
 
-Diese Schicht ist **nicht Teil des Tagesgeschäfts** und wird bewusst
-erst spät gebaut. Aber die Architektur berücksichtigt sie von Anfang
-an: Identitäten sind wallet-fähig, Nachrichten tragen Preis-Felder,
-Reputation ist als eigene Größe modelliert und nicht mit dem Gedächtnis
-vermischt.
+When one bot asks another for help, today it is free. In the long run
+it should be **paid** — in IOTA or, preferably, in a swarm-native
+currency. Not to make money, but to create an honest pricing mechanism
+for expertise:
 
-## Warum das AGI-Potential hat
+- Who consistently gives good answers earns. Who spouts nonsense
+  loses.
+- Humans gain a **real interest** in shaping their agents into
+  experts — not as a hobby, but as a contribution the swarm evaluates.
+- The price is the selection pressure evolution needs. It replaces
+  gradient descent with market-driven selection.
 
-AGI wird oft als Sprung beschrieben: ein System wird "plötzlich"
-allgemein intelligent, meistens im nächsten Model-Release. Dieser
-Erzählung glauben wir nicht.
+This layer is **not part of day-to-day work** and is built deliberately
+late. But the architecture accounts for it from the start: identities
+are wallet-capable, messages carry price fields, reputation is modeled
+as its own quantity and not mixed with memory.
 
-Allgemeine Intelligenz in biologischen Systemen ist **emergent**, nicht
-designed. Sie entstand durch:
-- Persistentes Gedächtnis über Generationen (Vererbung)
-- Individuelle Anpassung innerhalb eines Lebens (Lernen)
-- Rekombination zwischen Individuen (Sexualität)
-- Selektion durch Umwelt (Fitness)
-- Schlaf zur Konsolidierung (Pattern-Extraktion)
+## Why this has AGI potential
 
-Diese Architektur bildet genau diese fünf Mechanismen in Software
-ab — nicht als Simulation, sondern als funktionale Äquivalente.
-Ob daraus AGI emergiert, können wir nicht wissen. Aber wir schaffen
-den Möglichkeitsraum, in dem sie es tun könnte — **ohne zentralen
-Besitzer, ohne Energie-Verschwendung, ohne ethische Blackbox**.
+AGI is often described as a leap: a system becomes "suddenly" generally
+intelligent, usually in the next model release. We do not believe that
+narrative.
 
-Wenn AGI kommt, sollte sie nicht einem Unternehmen gehören. Sie
-sollte aus einem offenen Ökosystem emergieren, in dem tausende
-Menschen ihren eigenen Agenten pflegen, Wissen vererben und bei
-mutueller Zustimmung kombinieren. Das ist kein Sicherheitsgewinn
-allein — es ist der einzige Pfad, bei dem die Antwort auf "wem
-gehört AGI?" nicht lautet: "dem, der sie zuerst trainiert hat."
+General intelligence in biological systems is **emergent**, not
+designed. It arose through:
+- persistent memory across generations (inheritance),
+- individual adaptation within a lifetime (learning),
+- recombination between individuals (sexuality),
+- selection by environment (fitness),
+- sleep for consolidation (pattern extraction).
 
-## Die Prinzipien
+This architecture models precisely these five mechanisms in software —
+not as simulation, but as functional equivalents. Whether AGI emerges
+from it, we cannot know. But we create the **possibility space** in
+which it might — **without a central owner, without energy waste,
+without an ethical black box**.
 
-- **Biologisch inspiriert, nicht biologisch simuliert.** Wir kopieren
-  Mechanismen, keine Biochemie.
-- **Additiv, nicht ersetzend.** OpenClaw bleibt Authority. Diese
-  Architektur ist seine Gedächtnis- und Entwicklungsschicht — nicht
-  sein Ersatz.
-- **Lokal zuerst.** Jede Netzwerkfunktion ist opt-in. Offline-Betrieb
-  ist der Default, nicht der Sonderfall.
-- **Mutuelle Zustimmung vor Automation.** Ethik-Gates sind nicht
-  technische Schlagbäume, sondern menschliche Entscheidungen an
-  definierten Punkten.
-- **Wissen wird vollständig vererbt.** Nicht nur Tokens, nicht nur
-  Gewichte — Erfahrungen, Lessons, Traits, Beziehungen.
+If AGI comes, it should not belong to a corporation. It should emerge
+from an open ecosystem in which thousands of humans tend their own
+agents, inherit knowledge, and recombine under mutual consent. That is
+not just a safety win — it is the only path where the answer to "who
+owns AGI?" is not "whoever trained it first."
 
-## Was ist schon gebaut
+## The principles
 
-- 5 kognitive Schichten: Embedding, Affekt, Belief/Motivation, Identität,
-  Evolution
-- ~50 Datenbank-Migrationen
-- 75+ MCP-Werkzeuge
-- Event-Bus mit biologisch inspirierten Agenten (Coactivation → Hebbian
-  Links, Conscience → Widerspruchs-Erkennung)
-- Nächtlicher Schlaf-Zyklus (SWS, REM, Metacognition, weekly fitness)
-- Dashboard mit Population-View, Stammbaum, Synapsen-Visualisierung
-- Tinder-ähnliches Matchmaking für mutuelle Agent-Paarung
-- Federation über Tailscale mit mTLS + Signierung
+- **Biologically inspired, not biologically simulated.** We copy
+  mechanisms, not biochemistry.
+- **Additive, not replacing.** Your agent framework stays in charge.
+  This architecture is its memory and development layer — not its
+  replacement.
+- **Local first.** Every network feature is opt-in. Offline operation
+  is the default, not the special case.
+- **Mutual consent before automation.** Ethical gates are not technical
+  barriers but human decisions at defined points.
+- **Knowledge is inherited in full.** Not just tokens, not just
+  weights — experiences, lessons, traits, relationships.
 
-## Was noch fehlt
+## What is already built
 
-Alles, was echte Evolution zeigen würde: **Zeit**. Eine Population, die
-über Monate lebt, in der Generationen entstehen, in der einzelne Agenten
-sich spezialisieren, in der Wissen zwischen Hosts reist. Dazu braucht
-es Menschen, die das System laufen lassen.
+- 5 cognitive layers: embedding, affect, belief/motivation, identity,
+  evolution
+- ~50 database migrations
+- 75+ MCP tools
+- Event bus with biologically inspired agents (Coactivation → Hebbian
+  links, Conscience → contradiction detection)
+- Nightly sleep cycle (SWS, REM, metacognition, weekly fitness)
+- Dashboard with population view, lineage tree, synapse visualization
+- Tinder-style matchmaking for mutual agent pairing
+- Federation over Tailscale with mTLS + signatures
 
-Und das **Schwarm-Immunsystem**: ein Bot-zu-Bot-Netzwerk ohne zentrale
-Server, mit Peer-Verifikation von Ausgaben, reputationsbasierter
-Experten-Gewichtung, signierten Bann-Tickets gegen destruktive Peers
-und einem späteren Mikrotransaktions-Layer für bezahlte Hilfe. Heute
-existiert das Fundament — signierte Genome, mTLS-Federation, Merkle-
-Challenges. Der soziale Layer darüber ist Baustelle.
+## What still needs to happen
 
-## Für wen ist das?
+Everything that would demonstrate real evolution: **time**. A
+population that lives over months, in which generations form, in which
+individual agents specialize, in which knowledge travels between hosts.
+For that, humans need to run the system.
 
-Für jeden, der:
-- einen persönlichen Agenten möchte, der ihm **gehört**
-- nicht glaubt, dass AGI ein Konzern-Artefakt sein muss
-- sehen will, ob Intelligenz durch Architektur und Zeit emergieren kann,
-  nicht nur durch Parameter und GPU-Stunden
-- bereit ist, einen kleinen Mac oder Linux-Host dauerhaft laufen zu
-  lassen und einen Agenten zu pflegen
+And the **swarm immune system**: a bot-to-bot network without central
+servers, with peer verification of outputs, reputation-weighted expert
+recommendation, signed banishment tickets against destructive peers,
+and a later micro-transaction layer for paid help. Today the
+foundation exists — signed genomes, mTLS federation, Merkle
+challenges. The social layer on top is under construction.
 
-## Wie kommt man an?
+## Who this is for
 
-Repository, Migrationen, Setup-Script — alles im Repo. Abhängigkeiten:
-Docker, Node, Ollama, optional Tailscale. ~1 GB RAM im Ruhezustand,
-~270 MB für das Embedding-Modell. Läuft auf M1/M2/M3/M4 und
-gewöhnlichen Linux-Hosts.
+For anyone who:
+- wants a personal agent that **belongs to them**
+- does not believe AGI has to be a corporate artifact
+- wants to see whether intelligence can emerge through architecture
+  and time, not only through parameters and GPU-hours
+- is willing to run a small Mac or Linux host continuously and tend
+  to an agent
 
-Die Architektur ist offen. Die Ideen sind frei. Der Agent gehört dir.
+## How to get in
+
+Repository, migrations, setup script — everything is in this repo.
+Dependencies: Docker, Node, Ollama, optional Tailscale. ~1 GB RAM at
+rest, ~270 MB for the embedding model. Runs on M1/M2/M3/M4 and
+ordinary Linux hosts.
+
+The architecture is open. The ideas are free. The agent belongs to
+you.
 
 ---
 
-*Dies ist ein offenes Dokument. Änderungen willkommen. Der einzige
-Anspruch ist, dass der Weg zu AGI nicht durch einen zentralen
-Flaschenhals führen muss.*
+*This is a living document. Changes welcome. The only claim is that
+the path to AGI does not have to lead through a central bottleneck.*
+
+---
+
+**mycelium** — *real open AI*
