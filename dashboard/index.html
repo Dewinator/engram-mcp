@@ -591,6 +591,10 @@
           <div class="mood-spark"><canvas id="chart-mood-spark"></canvas></div>
         </div>
       </div>
+      <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
+        <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin:0 0 8px">affektive verfassung <span class="sub" id="soul-affect-meta" style="text-transform:none;letter-spacing:normal"></span></h3>
+        <div id="soul-affect-bars" class="bars"></div>
+      </div>
     </section>
 
     <section class="grid grid-charts">
@@ -1339,6 +1343,40 @@ function renderAffect(state) {
     ["include_adjacent_tags", bias.include_adjacent_tags ? "ja" : "nein"],
     ["rationale",           `<code>${bias.reason}</code>`],
   ].map(([k,v]) => `<div class="health-item"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+}
+
+// Compact affect render for the soul tab — same data as renderAffect() but
+// trimmed: no decay details, no bias-block. Lives directly under the mood
+// centerpiece so the "stimmung" view shows BOTH circumplex (val/aro) AND
+// the four regulator dimensions side-by-side.
+function renderSoulAffect(state) {
+  const barsEl = document.getElementById("soul-affect-bars");
+  const metaEl = document.getElementById("soul-affect-meta");
+  if (!barsEl) return;
+  if (!state || state.error) {
+    barsEl.innerHTML = `<div class="sub">agent_affect nicht verfügbar.</div>`;
+    if (metaEl) metaEl.textContent = "";
+    return;
+  }
+  const dims = [
+    { k: "curiosity",    label: "neugier",      hint: "explorationsbreite"        },
+    { k: "satisfaction", label: "zufriedenheit", hint: "erfolgsniveau"            },
+    { k: "confidence",   label: "selbstvertrauen", hint: "confidence"              },
+    { k: "frustration",  label: "frustration",  hint: "wiederholungs-stress (decay)" },
+  ];
+  barsEl.innerHTML = dims.map(d => {
+    const v = state[d.k] ?? 0;
+    const pct = Math.max(0, Math.min(100, v * 100));
+    return `<div class="bar-row">
+      <div class="bar-label">${d.label}<span class="bar-hint"> — ${d.hint}</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="bar-val">${v.toFixed(2)}</div>
+    </div>`;
+  }).join("");
+  if (metaEl) {
+    const evt = state.last_event ? `last: ${state.last_event}` : "no event yet";
+    metaEl.textContent = ` — ${evt}`;
+  }
 }
 
 function renderSkills(stats) {
@@ -3070,6 +3108,7 @@ async function load() {
 
     // regulator tab (graceful degradation if migration 019 missing or belief sidecar down)
     renderAffect(aff);
+    renderSoulAffect(aff);   // Same data, compact render under the mood disc
     renderBelief(beliefHealth, beliefModel);
 
     // learning tab (migrations 020 + 021)
