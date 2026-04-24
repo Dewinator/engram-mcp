@@ -165,6 +165,15 @@ Die folgenden Phasen bauen auf dem produktiven Stand auf (Migrationen 019–030)
 Ziel ist ein sich selbst entwickelndes Multi-Instanz-System nach biologischem
 Vorbild, mit konzentrierter Wissensvererbung und user-kuratierter Paarung.
 
+### In-Flight — Affect aus Observables (Issue #11)
+
+Der aktuelle `agent_affect`-Zustand wird vom LLM per `affect_apply` gefüttert
+und deshalb in der Praxis unterberichtet. Geplanter Umbau: `compute_affect()`
+leitet die vier Dimensionen plus valence/arousal aus schon vorhandenen
+Tabellen ab (`experiences`, `memory_events`, `skill_outcomes`, `stimuli`) und
+läuft per Trigger, nicht per MCP-Call. Formelspezifikation vor Migration:
+[docs/affect-observables.md](docs/affect-observables.md).
+
 ### Phase A+B — Fundament + Reproduzierbarkeit (erledigt)
 - agents-Registry + Heartbeat (Migration 028)
 - Provenance-Tags auf memories/experiences/lessons/soul_traits (029)
