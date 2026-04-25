@@ -160,4 +160,4 @@ The architecture is open. The ideas are free. The agent belongs to you.
 
 ---
 
-**mycelium** — *real open AI*
+**mycelium** — *your AI*

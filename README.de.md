@@ -324,4 +324,4 @@ Issues und Pull Requests sind willkommen. Details zum Entwicklungsworkflow in [C
 
 > **Memory ist kein Speicher. Memory ist Verhalten.**
 
-**mycelium** — *real open AI*
+**mycelium** — *your AI*

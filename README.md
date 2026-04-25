@@ -324,4 +324,4 @@ Issues and pull requests welcome. Development workflow details in [CLAUDE.md](./
 
 > **Memory is not storage. It's behavior.**
 
-**mycelium** — *real open AI*
+**mycelium** — *your AI*
