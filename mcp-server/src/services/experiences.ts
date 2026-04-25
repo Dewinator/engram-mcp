@@ -1,5 +1,6 @@
 import { PostgrestClient } from "@supabase/postgrest-js";
 import type { EmbeddingProvider } from "./embeddings.js";
+import { MARK_USEFUL_EVENT_TYPE } from "./supabase.js";
 
 /**
  * Experience / soul layer service.
@@ -507,7 +508,7 @@ export class ExperienceService {
     // context so downstream consumers can still correlate. Non-fatal.
     const { error: evErr } = await this.db.rpc("log_memory_event", {
       p_memory_id:  null,
-      p_event_type: "mark_useful",
+      p_event_type: MARK_USEFUL_EVENT_TYPE,
       p_source:     "mcp:mark_experience_useful",
       p_context:    buildMarkUsefulFromExperienceContext(experienceId),
       p_trace_id:   null,
