@@ -21,12 +21,17 @@ const __dirname  = path.dirname(__filename);
 const ROOT       = path.resolve(__dirname, "..");
 
 const DEFAULTS = {
-  minLift:      5,
-  minSupport:   0.01,
-  maxPerPair:   15,
-  patternLimit: 100,
-  blocklist:    ["functions", "tool", "vector-memory", "mcp"],
-  dryRun:       false,
+  minLift:         5,
+  minSupport:      0.01,
+  maxPerPair:      15,
+  patternLimit:    100,
+  // k-NN sparsity: per memory within a tag-pair cohort, only the top-K most
+  // similar peers get an edge. Replaces the old all-to-all clique emission
+  // (which produced N*(N-1)/2 edges per pattern, biologically unrealistic).
+  topKPerMemory:   3,
+  minPairSimilarity: 0.0,
+  blocklist:       ["functions", "tool", "vector-memory", "mcp"],
+  dryRun:          false,
 };
 
 export async function consolidateByPatterns(opts = {}) {
@@ -97,34 +102,49 @@ export async function consolidateByPatterns(opts = {}) {
 
     if (mems.length < 2) { result.skipped++; continue; }
 
+    // Sparse k-NN pairs within the cohort — replaces the old all-to-all clique.
+    // For each memory, keep only the K most-similar peers; symmetric pairs are
+    // deduplicated server-side so we emit exactly one chain_memories per pair.
+    let knnPairs = [];
+    try {
+      knnPairs = await rpc("memory_knn_within_cohort", {
+        p_member_ids:     mems.map((m) => m.id),
+        p_k:              cfg.topKPerMemory,
+        p_min_similarity: cfg.minPairSimilarity,
+      });
+    } catch (e) {
+      result.errors.push({ pair: `${p.tag_a}×${p.tag_b}`, step: "knn", msg: String(e?.message ?? e) });
+      continue;
+    }
+
     const w = weight(p.lift);
-    const reason = `auto-consolidated: ${p.tag_a} × ${p.tag_b} (lift=${p.lift.toFixed(2)}, n=${p.n_ab})`;
-    const pairCount = (mems.length * (mems.length - 1)) / 2;
+    const reason = `auto-consolidated: ${p.tag_a} × ${p.tag_b} (lift=${p.lift.toFixed(2)}, n=${p.n_ab}, knn-k=${cfg.topKPerMemory})`;
 
     result.details.push({
       tag_a: p.tag_a, tag_b: p.tag_b,
       lift:  p.lift,  n: p.n_ab,
-      memories: mems.length, edges: pairCount, weight: w,
+      memories: mems.length,
+      edges_dense_would_be: (mems.length * (mems.length - 1)) / 2,
+      edges_sparse:         knnPairs.length,
+      weight: w,
     });
     result.pairs_processed += 1;
 
-    if (cfg.dryRun) { result.edges_created += pairCount; continue; }
+    if (cfg.dryRun) { result.edges_created += knnPairs.length; continue; }
 
-    for (let i = 0; i < mems.length; i++) {
-      for (let j = i + 1; j < mems.length; j++) {
-        try {
-          await rpc("chain_memories", {
-            p_a_id:     mems[i].id,
-            p_b_id:     mems[j].id,
-            p_type:     "related",
-            p_reason:   reason,
-            p_weight:   w,
-            p_agent_id: null,
-          });
-          result.edges_created++;
-        } catch (e) {
-          result.errors.push({ pair: `${p.tag_a}×${p.tag_b}`, a: mems[i].id, b: mems[j].id, msg: String(e?.message ?? e) });
-        }
+    for (const pair of knnPairs) {
+      try {
+        await rpc("chain_memories", {
+          p_a_id:     pair.a_id,
+          p_b_id:     pair.b_id,
+          p_type:     "related",
+          p_reason:   reason,
+          p_weight:   w,
+          p_agent_id: null,
+        });
+        result.edges_created++;
+      } catch (e) {
+        result.errors.push({ pair: `${p.tag_a}×${p.tag_b}`, a: pair.a_id, b: pair.b_id, msg: String(e?.message ?? e) });
       }
     }
   }
@@ -145,7 +165,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   console.log(`[consolidate] total_memories=${res.total_memories}, patterns total=${res.patterns_total}, eligible=${res.patterns_eligible}`);
   for (const d of res.details) {
-    console.log(`  ${d.tag_a} × ${d.tag_b}: ${d.memories} memories → ${d.edges} edges, weight=${d.weight.toFixed(2)}`);
+    console.log(`  ${d.tag_a} × ${d.tag_b}: ${d.memories} memories → ${d.edges_sparse} edges (sparse, would be ${d.edges_dense_would_be} dense), weight=${d.weight.toFixed(2)}`);
   }
   console.log(`[consolidate] done: pairs=${res.pairs_processed}, edges=${res.edges_created}, skipped=${res.skipped}, errors=${res.errors.length}${res.dry_run ? " (DRY RUN)" : ""}`);
   if (res.errors.length) console.error(JSON.stringify(res.errors.slice(0, 5), null, 2));
