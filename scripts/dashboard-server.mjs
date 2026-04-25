@@ -1026,6 +1026,13 @@ async function handleRelationsGraph(req, res) {
     const category     = url.searchParams.get("category");                     // people|projects|topics|decisions
     const focusId      = url.searchParams.get("focus");                        // optional center
     const depth        = Math.min(parseInt(url.searchParams.get("depth") || "2", 10) || 2, 4);
+    // Inter-Cluster-Brücken: zusätzliche top-K Kanten nach weight.desc (ohne
+    // min_weight-Filter), damit der Client wirklich isolierte Komponenten via
+    // dominante Synapse verbinden kann. Floor verhindert Noise.
+    const wantBridges  = url.searchParams.get("bridges") === "1";
+    const bridgeFloor  = Math.max(0, Math.min(0.99,
+      parseFloat(url.searchParams.get("bridge_min_weight") || "0.5")));
+    const bridgeTopK   = Math.min(500, parseInt(url.searchParams.get("bridge_top") || "300", 10) || 300);
 
     // --- 1) typed relations --------------------------------------------------
     const relsUrl = new URL("/memory_relations", UPSTREAM);
@@ -1066,9 +1073,75 @@ async function handleRelationsGraph(req, res) {
       }
     }
 
+    // --- 2b) Inter-Cluster-Bridge-Kandidaten (top-K nach weight.desc) -------
+    // Diese Kandidaten ignorieren min_weight/min_hebb absichtlich — sie sollen
+    // dem Client erlauben, zwischen Komponenten zu vermitteln, die durch den
+    // User-Filter gerade getrennt wurden. Floor (bridgeFloor) verhindert Noise.
+    const bridgeCandidates = [];
+    if (wantBridges) {
+      const seenPairs = new Set(
+        edges.map(e => {
+          const lo = e.a < e.b ? e.a : e.b;
+          const hi = e.a < e.b ? e.b : e.a;
+          return `${lo}|${hi}|${e.type}`;
+        })
+      );
+
+      const brUrl = new URL("/memory_relations", UPSTREAM);
+      brUrl.searchParams.set("select", "a_id,b_id,type,weight,evidence_count,reason");
+      brUrl.searchParams.set("order",  "weight.desc");
+      brUrl.searchParams.set("limit",  String(bridgeTopK));
+      if (types)        brUrl.searchParams.set("type",   `in.(${types})`);
+      if (bridgeFloor)  brUrl.searchParams.set("weight", `gte.${bridgeFloor}`);
+      const brResp = await fetch(brUrl, {
+        headers: { Authorization: `Bearer ${SERVICE_JWT}`, apikey: SERVICE_JWT, Accept: "application/json" }
+      });
+      if (brResp.ok) {
+        const brRows = await brResp.json();
+        for (const r of brRows) {
+          const lo = r.a_id < r.b_id ? r.a_id : r.b_id;
+          const hi = r.a_id < r.b_id ? r.b_id : r.a_id;
+          const k  = `${lo}|${hi}|${r.type}`;
+          if (seenPairs.has(k)) continue;
+          seenPairs.add(k);
+          bridgeCandidates.push({
+            a: r.a_id, b: r.b_id, type: r.type,
+            weight: r.weight, evidence: r.evidence_count,
+            reason: r.reason, kind: "typed",
+          });
+        }
+      }
+
+      if (includeHebb) {
+        const bhUrl = new URL("/memory_links", UPSTREAM);
+        bhUrl.searchParams.set("select", "a,b,weight,coactivation_count");
+        bhUrl.searchParams.set("order",  "weight.desc");
+        bhUrl.searchParams.set("limit",  String(Math.min(300, Math.max(100, Math.floor(bridgeTopK * 0.66)))));
+        if (bridgeFloor) bhUrl.searchParams.set("weight", `gte.${bridgeFloor}`);
+        const bhResp = await fetch(bhUrl, {
+          headers: { Authorization: `Bearer ${SERVICE_JWT}`, apikey: SERVICE_JWT, Accept: "application/json" }
+        });
+        if (bhResp.ok) {
+          const bhRows = await bhResp.json();
+          for (const h of bhRows) {
+            const lo = h.a < h.b ? h.a : h.b;
+            const hi = h.a < h.b ? h.b : h.a;
+            const k  = `${lo}|${hi}|hebbian`;
+            if (seenPairs.has(k)) continue;
+            seenPairs.add(k);
+            bridgeCandidates.push({
+              a: h.a, b: h.b, type: "hebbian",
+              weight: h.weight, evidence: h.coactivation_count ?? 0, kind: "hebbian",
+            });
+          }
+        }
+      }
+    }
+
     // --- 3) sammle alle beteiligten Memory-IDs + (optional) focus-BFS --------
     const wantIds = new Set();
     for (const e of edges) { wantIds.add(e.a); wantIds.add(e.b); }
+    for (const b of bridgeCandidates) { wantIds.add(b.a); wantIds.add(b.b); }
 
     if (focusId && wantIds.has(focusId)) {
       // keep only edges reachable within `depth` hops from focusId
@@ -1093,6 +1166,10 @@ async function handleRelationsGraph(req, res) {
       }
       for (let i = edges.length - 1; i >= 0; i--) {
         if (!keep.has(edges[i].a) || !keep.has(edges[i].b)) edges.splice(i, 1);
+      }
+      for (let i = bridgeCandidates.length - 1; i >= 0; i--) {
+        const b = bridgeCandidates[i];
+        if (!keep.has(b.a) || !keep.has(b.b)) bridgeCandidates.splice(i, 1);
       }
       wantIds.clear();
       for (const id of keep) wantIds.add(id);
@@ -1136,6 +1213,18 @@ async function handleRelationsGraph(req, res) {
         for (let i = edges.length - 1; i >= 0; i--) {
           if (!ok.has(edges[i].a) || !ok.has(edges[i].b)) edges.splice(i, 1);
         }
+        for (let i = bridgeCandidates.length - 1; i >= 0; i--) {
+          const b = bridgeCandidates[i];
+          if (!ok.has(b.a) || !ok.has(b.b)) bridgeCandidates.splice(i, 1);
+        }
+      } else {
+        // Auch ohne Category-Filter müssen Bridges deren Endpunkte tatsächlich
+        // im nodes-Set landen — sonst würden Phantom-Kanten auf nichts zeigen.
+        const ok = new Set(nodes.map(n => n.id));
+        for (let i = bridgeCandidates.length - 1; i >= 0; i--) {
+          const b = bridgeCandidates[i];
+          if (!ok.has(b.a) || !ok.has(b.b)) bridgeCandidates.splice(i, 1);
+        }
       }
     }
 
@@ -1146,11 +1235,14 @@ async function handleRelationsGraph(req, res) {
     res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
     res.end(JSON.stringify({
       nodes, edges,
+      bridge_candidates: bridgeCandidates,
       stats: {
         node_count: nodes.length,
         edge_count: edges.length,
+        bridge_candidate_count: bridgeCandidates.length,
         type_counts: typeCounts,
         limited: edges.length >= limit,
+        bridge_floor: wantBridges ? bridgeFloor : null,
       },
       generated_at: new Date().toISOString(),
     }));

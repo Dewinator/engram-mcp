@@ -79,6 +79,7 @@
     cursor: pointer; transition: background .15s, border-color .15s;
   }
   button.btn:hover { background: var(--bg-elev-2); border-color: var(--text-faint); }
+  button.btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); display: inline-block; }
   .status-dot.ok { background: var(--good); }
   .status-dot.bad { background: var(--bad); }
@@ -386,19 +387,27 @@
   }
   .syn-toolbar .chip b { color: var(--text); }
 
+  /* Starlight-Scheme: tiefes Navy, cyan Synapsen, gold-leuchtende Brücken —
+     biologische Atmosphäre statt nüchternem UI-Grau. */
   .syn-stage {
-    position: relative; background: radial-gradient(ellipse at 30% 20%, rgba(122,162,247,0.08), transparent 55%),
-                               radial-gradient(ellipse at 75% 80%, rgba(187,154,247,0.08), transparent 60%),
-                               var(--bg);
-    border: 1px solid var(--border); border-radius: var(--radius);
+    position: relative;
+    background:
+      radial-gradient(ellipse at 30% 25%, rgba(94,234,212,0.06), transparent 55%),
+      radial-gradient(ellipse at 75% 80%, rgba(34,211,238,0.05), transparent 60%),
+      radial-gradient(circle at 50% 50%, #0d1d2c 0%, #050b13 100%);
+    border: 1px solid #1a2b3d; border-radius: var(--radius);
     height: calc(100vh - 220px); min-height: 520px; overflow: hidden;
-    box-shadow: inset 0 0 60px rgba(0,0,0,0.4), var(--shadow);
+    box-shadow: inset 0 0 90px rgba(0,0,0,0.6), var(--shadow);
   }
   :root[data-theme="light"] .syn-stage {
-    background: radial-gradient(ellipse at 30% 20%, rgba(59,108,217,0.07), transparent 55%),
-                radial-gradient(ellipse at 75% 80%, rgba(138,77,217,0.07), transparent 60%),
-                #f9fbfe;
-    box-shadow: inset 0 0 60px rgba(20,30,50,0.04), var(--shadow);
+    /* Light-Mode: helles Off-White mit cyan/teal Akzenten. Edges + Nodes
+       bleiben farbinformativ — der Renderer schaltet Light-Theme separat. */
+    background:
+      radial-gradient(ellipse at 30% 25%, rgba(34,211,238,0.10), transparent 55%),
+      radial-gradient(ellipse at 75% 80%, rgba(94,234,212,0.08), transparent 60%),
+      radial-gradient(circle at 50% 50%, #f4f8fb 0%, #e6edf3 100%);
+    border: 1px solid #c8d1da;
+    box-shadow: inset 0 0 60px rgba(20,30,50,0.05), var(--shadow);
   }
   .syn-canvas { position: absolute; inset: 0; display: block; touch-action: none; cursor: grab; }
   .syn-canvas:active { cursor: grabbing; }
@@ -476,8 +485,15 @@
 <!-- Three.js (UMD bundle, last UMD release before module-only) — powers the
      synapses tab's 3D Hebbian-graph visualisation. Loaded from a pinned CDN
      so the dashboard works offline-after-first-load via browser cache. -->
-<script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.149.0/examples/js/controls/OrbitControls.js"></script>
+<!-- Hand-rolled Three.js — leichter als 3d-force-graph, in Reeds Safari getestet.
+     Line2-Familie aus examples/js für sichtbare Edges (statt 1px-Treiber-Limit). -->
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="vendor/lines/LineSegmentsGeometry.js"></script>
+<script src="vendor/lines/LineGeometry.js"></script>
+<script src="vendor/lines/LineMaterial.js"></script>
+<script src="vendor/lines/LineSegments2.js"></script>
+<script src="vendor/lines/Line2.js"></script>
 </head>
 <body>
   <aside class="sidebar" id="sidebar">
@@ -1066,6 +1082,9 @@
       <label>hebb
         <input type="checkbox" id="syn-hebbian" checked />
       </label>
+      <label title="Cluster über stärkste Inter-Cluster-Synapse verbinden">brücken
+        <input type="checkbox" id="syn-bridges" checked />
+      </label>
       <label>kategorie
         <select id="syn-category">
           <option value="">alle</option>
@@ -1096,8 +1115,15 @@
       <button class="btn" id="syn-reload">neu laden</button>
       <button class="btn" id="syn-recenter">zentrieren</button>
       <button class="btn" id="syn-pulse" title="simuliere aktivierungswelle">puls</button>
+      <span class="syn-views" style="display:inline-flex;gap:2px;margin-left:4px">
+        <button class="btn" id="syn-v1" title="klick: laden · shift+klick: speichern · alt+klick: löschen">v1</button>
+        <button class="btn" id="syn-v2" title="klick: laden · shift+klick: speichern · alt+klick: löschen">v2</button>
+        <button class="btn" id="syn-v3" title="klick: laden · shift+klick: speichern · alt+klick: löschen">v3</button>
+      </span>
+      <a class="btn" href="assets/synapsen-vision-2026-04-25.png" target="_blank" rel="noopener" title="Vision-Snapshot 2026-04-25 — der angestrebte Look" style="text-decoration:none">vision</a>
       <span class="chip"><b id="syn-node-count">0</b>&nbsp;neuronen</span>
       <span class="chip"><b id="syn-edge-count">0</b>&nbsp;synapsen</span>
+      <span class="chip" id="syn-bridge-chip" style="display:none"><b id="syn-bridge-count">0</b>&nbsp;brücken</span>
     </div>
     <div class="syn-stage" id="syn-stage">
       <canvas class="syn-canvas" id="syn-canvas"></canvas>
@@ -1123,7 +1149,8 @@
       </div>
       <div class="syn-hud" id="syn-hud">zoom 1.00 · —</div>
       <div class="syn-hint" id="syn-hint-2d">drag: schwenken · rad/pinch: zoom · node-click: details · drag node: fixieren · R: layout</div>
-      <div class="syn-hint" id="syn-hint-3d" style="display:none">drag: rotieren · rechte maus / shift+drag: schwenken · rad: zoom · klick: details · R: layout</div>
+      <div id="syn-error" style="position:absolute;top:12px;right:12px;z-index:10;display:none;max-width:380px;padding:10px 12px;background:rgba(127,29,29,0.92);color:#fee2e2;border:1px solid #f87171;border-radius:6px;font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;"></div>
+      <div class="syn-hint" id="syn-hint-3d" style="display:none">links-drag: schwenken · rechts-drag: rotieren · rad: zoom · klick: details · R: layout</div>
     </div>
   </div><!-- /panel-synapses -->
 
@@ -3730,7 +3757,7 @@ const SYN = (() => {
     fixed_by:         "#9ece6a",
     repeated_mistake: "#f7768e",
     validated_by:     "#9ece6a",
-    hebbian:          "#5a6473",
+    hebbian:          "#5eead4",
   };
   const RELATION_LABELS = {
     caused_by:        "verursacht von",
@@ -3748,17 +3775,65 @@ const SYN = (() => {
     validated_by:     "validiert durch",
     hebbian:          "hebb (co-aktivierung)",
   };
+  // Wird im Detail-Panel referenziert — mit Neuron-Palette synchron halten.
   const CATEGORY_COLOURS = {
-    general:   "#7aa2f7",
-    people:    "#f7768e",
-    projects:  "#e0af68",
-    topics:    "#bb9af7",
-    decisions: "#9ece6a",
+    general:   "#0284c7",
+    people:    "#be123c",
+    projects:  "#c2410c",
+    topics:    "#7c3aed",
+    decisions: "#15803d",
   };
+
+  // Bio-Palette — gedämpfter, weniger neon, klar unterscheidbar.
+  // Information primär über Nodefarbe; Edges blenden zwischen Endpunkten.
+  const NEURON_COLOURS = {
+    general:   "#0284c7",  // sky-600 — gedämpftes Blau
+    people:    "#be123c",  // rose-700 — kerniges Rot, nicht pink-grell
+    projects:  "#c2410c",  // orange-700 — warmer Ocker
+    topics:    "#7c3aed",  // violet-600 — sattes Violett
+    decisions: "#15803d",  // green-700 — moosig statt mintgrell
+  };
+  // Highlight = die hellere Variante für Specular + Outline.
+  const NEURON_HIGHLIGHT = {
+    general:   "#7dd3fc",
+    people:    "#fda4af",
+    projects:  "#fdba74",
+    topics:    "#c4b5fd",
+    decisions: "#86efac",
+  };
+  function nodeColor(cat) { return NEURON_COLOURS[cat] || NEURON_COLOURS.general; }
+  function nodeHighlight(cat) { return NEURON_HIGHLIGHT[cat] || NEURON_HIGHLIGHT.general; }
+
+  const STARLIGHT = {
+    edgeBridge:   "#fcd34d",  // amber — Inter-Cluster-Marker
+    edgeSelected: "#fafafa",  // weiß-warm — Selection-Glow-Akzent
+  };
+  // Edges sind Dendriten — sie blenden zwischen den Farben ihrer Endpunkte.
+  // Für solide Farben (Glow, Pulse-Dot) liefern wir den Mix aus Endpunkt-
+  // Farben oder die Bridge-Farbe Gold.
+  function mixColors(hexA, hexB, t) {
+    const a = parseInt(hexA.replace("#", ""), 16);
+    const b = parseInt(hexB.replace("#", ""), 16);
+    const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+    const br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+    const r = Math.round(ar + (br - ar) * t);
+    const g = Math.round(ag + (bg - ag) * t);
+    const b2 = Math.round(ab + (bb - ab) * t);
+    return `#${((1 << 24) | (r << 16) | (g << 8) | b2).toString(16).slice(1)}`;
+  }
+  function edgeColorOf(e) {
+    if (e._bridge) return STARLIGHT.edgeBridge;
+    const ca = e._a ? nodeColor(e._a.category) : NEURON_COLOURS.general;
+    const cb = e._b ? nodeColor(e._b.category) : NEURON_COLOURS.general;
+    return mixColors(ca, cb, 0.5);
+  }
 
   const state = {
     nodes: [],
     edges: [],
+    bridges: [],                // Inter-Cluster-Brücken (Subset von edges, _bridge=true)
+    communityLabels: new Map(), // node-id -> community-label (label-propagation)
+    communityCenters: new Map(),// community-label -> {x,y} (für 2D-Layout)
     byId: new Map(),
     transform: { x: 0, y: 0, k: 1 },
     hover: null,
@@ -3794,15 +3869,17 @@ const SYN = (() => {
 
   // ---- force simulation (velocity Verlet, custom — no d3) -----------------
   //
-  // Cluster-Padding: Knoten derselben Kategorie werden zu einem gemeinsamen
-  // virtuellen Zentrum gezogen, die Zentren liegen auf einem Kreis um die
-  // Stage-Mitte. Effekt: die semantischen Cluster (general/people/projects
-  // /topics/decisions) trennen sich optisch, statt in einer Wolke zu
-  // verschmelzen. Tuning-Parameter unten zentral.
-  const CLUSTER_CENTER_PULL = 0.012;   // Federkonstante zu Category-Zentrum
-  const STAGE_CENTER_PULL   = 0.0012;  // nur noch ein leichter Gesamt-Anker
+  // KEINE harte Category-Ring-Anziehung mehr (siehe Audit 3a3c52c9 und
+  // Intention 43e2c187): Cluster sollen aus Edge-Density emergieren — Topic-
+  // Cluster aus Hebbian/typed-Co-Aktivierung, nicht aus 5 fixen Category-
+  // Positionen. Sonst dominiert das Category-Korsett über Brücken und
+  // Pattern-Edges. Ein schwacher Restzug (CATEGORY_NUDGE) hilft nur noch
+  // bei der visuellen Sortierung, ohne semantische Struktur zu erzwingen.
+  const CATEGORY_NUDGE      = 0.0008;  // Fallback wenn keine Communities erkannt
+  const COMMUNITY_PULL      = 0.006;   // räumliche Trennung der detektierten Cluster
+  const STAGE_CENTER_PULL   = 0.0012;  // schwacher Gesamt-Anker
   const BOUNDARY_PAD        = 60;      // Puffer zum Stage-Rand
-  const CLUSTER_RING_RATIO  = 0.28;    // Radius des Category-Rings (von min(w,h))
+  const CLUSTER_RING_RATIO  = 0.32;    // Radius des Category-Rings (von min(w,h))
 
   function _categoryCentersFor(w, h) {
     // Stabile Sortierung: die Reihenfolge der CATEGORY_COLOURS-Keys. Nur
@@ -3896,36 +3973,48 @@ const SYN = (() => {
             let d2 = dxx * dxx + dyy * dyy;
             if (d2 < 0.01) { dxx = (Math.random() - 0.5); dyy = (Math.random() - 0.5); d2 = 0.5; }
             const d = Math.sqrt(d2);
-            // Leichter Boost für cross-category Repulsion — das ist der
-            // eigentliche "Cluster-Padding"-Effekt.
-            const crossCat = (n.category || "general") !== (o.category || "general");
-            const f = (repulsionK / d2) * (crossCat ? 1.45 : 1.0);
+            // Repulsion ist kategorie-neutral — Cluster sollen aus Edge-
+            // Density entstehen, nicht aus Category-Trennung.
+            const f = repulsionK / d2;
             fx += (dxx / d) * f;
             fy += (dyy / d) * f;
           }
         }
       }
-      // Category-Cluster-Anziehung (Haupt-Cluster-Kraft) …
-      const cc = catCenters[n.category || "general"];
-      if (cc) {
-        fx += (cc.x - n.x) * CLUSTER_CENTER_PULL;
-        fy += (cc.y - n.y) * CLUSTER_CENTER_PULL;
+      // Community-Pull: detektierte Cluster bekommen räumliche Trennung.
+      // Stärker als Category-Nudge, damit semantische Cluster sich visuell
+      // ablösen — aber schwächer als Edge-Federn, damit Brücken wirken.
+      const lbl = state.communityLabels.get(n.id);
+      const com = lbl ? state.communityCenters.get(lbl) : null;
+      if (com) {
+        fx += (com.x - n.x) * COMMUNITY_PULL;
+        fy += (com.y - n.y) * COMMUNITY_PULL;
+      } else {
+        // Fallback: Category-Nudge wenn keine Community-Detection lief.
+        const cc = catCenters[n.category || "general"];
+        if (cc) {
+          fx += (cc.x - n.x) * CATEGORY_NUDGE;
+          fy += (cc.y - n.y) * CATEGORY_NUDGE;
+        }
       }
-      // … plus ein schwacher globaler Anker, damit nichts nach außen driftet.
+      // Globaler Anker — verhindert das Wegdriften ans Boundary.
       fx += (cx - n.x) * STAGE_CENTER_PULL;
       fy += (cy - n.y) * STAGE_CENTER_PULL;
       n._fx = fx; n._fy = fy;
     }
 
-    // spring forces along edges
+    // spring forces along edges — primary clustering driver.
+    // Bridges koppeln Cluster fester (kürzere Target-Distanz, stärkere Feder).
     for (const e of edges) {
       if (!e._a || !e._b) continue;
+      if (state.disabledTypes.has(e.type)) continue;
       const a = e._a, b = e._b;
       const dx = b.x - a.x, dy = b.y - a.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const target = 80 + (1 - (e.weight ?? 0.5)) * 90;
+      const w = e.weight ?? 0.5;
+      const target = e._bridge ? 50 + (1 - w) * 55 : 70 + (1 - w) * 70;
       const diff = d - target;
-      const k = 0.02 * (0.5 + (e.weight ?? 0.5));
+      const k = (e._bridge ? 0.05 : 0.035) * (0.4 + w);
       const fx = (dx / d) * diff * k;
       const fy = (dy / d) * diff * k;
       a._fx += fx; a._fy += fy;
@@ -3994,46 +4083,138 @@ const SYN = (() => {
     ctx.save();
     ctx.translate(t.x, t.y);
     ctx.scale(t.k, t.k);
+    // Zoom-Kompensation: Linien sollen in Bildschirm-Pixeln stabil bleiben,
+    // egal wie weit der User raus- oder reinzoomt. Geclamped, damit
+    // Extreme-Zooms nicht zu fetten oder rasiermesserdünnen Linien führen.
+    const zoomComp = 1 / Math.max(0.45, Math.min(2.4, t.k));
 
     // ------ edges ----------------------------------------------------------
-    const hl = state.hover || state.selected;
+    // Selektion ist sticky (BFS-getrieben), Hover nur Vorschau (1-Hop).
+    const hl = state.selected || state.hover;
     const hlId = hl ? hl.id : null;
+    const usingBFS = !!state.selected;
     const searchHits = state.searchTerm ? computeSearchHits() : null;
+    const tNow = performance.now();
 
-    for (const e of state.edges) {
+    // Brücken zuletzt, damit sie nicht hinter Hebbian-Spaghetti verschwinden.
+    const orderedEdges = state.edges.slice().sort((x, y) => {
+      const xb = x._bridge ? 1 : 0, yb = y._bridge ? 1 : 0;
+      return xb - yb;
+    });
+    const selDepthLocal = usingBFS ? state.selDepth : null;
+    for (const e of orderedEdges) {
       if (!e._a || !e._b) continue;
       if (state.disabledTypes.has(e.type)) continue;
       const a = e._a, b = e._b;
-      const dim = hlId && a.id !== hlId && b.id !== hlId;
-      const col = RELATION_COLOURS[e.type] || "#5a6473";
+      const isBridge = !!e._bridge;
+      // Edge-Tier: BFS-Tiefe wenn Selektion, sonst 1-Hop-Fallback bei Hover.
+      let edgeTier = 0;
+      if (selDepthLocal) {
+        const da = selDepthLocal.get(a.id);
+        const db = selDepthLocal.get(b.id);
+        if (da !== undefined && db !== undefined) edgeTier = Math.max(da, db);
+      } else if (hlId && (a.id === hlId || b.id === hlId)) {
+        edgeTier = 1;
+      }
+      const dim = hlId && edgeTier === 0;
+      // Dendrit-Farben: src-Neuron-Farbe → tgt-Neuron-Farbe als Verlauf,
+      // sodass Edge-Identität sich aus den Neuronen-Identitäten ergibt.
+      const colA = e._bridge ? STARLIGHT.edgeBridge : nodeColor(a.category);
+      const colB = e._bridge ? STARLIGHT.edgeBridge : nodeColor(b.category);
+      const col  = e._bridge ? STARLIGHT.edgeBridge : mixColors(colA, colB, 0.5);
       const weight = e.weight ?? 0.5;
-      let alpha = dim ? 0.07 : (0.25 + weight * 0.55);
+
+      let alpha;
+      if (hlId) {
+        if (edgeTier === 0) {
+          alpha = isBridge ? 0.10 : 0.04;
+        } else {
+          // Tier 1: hell, Tier 2: halb, Tier 3: dezent, Tier 4: kaum.
+          const tierIntensity = Math.pow(0.55, edgeTier - 1); // 1, 0.55, 0.30, 0.17
+          alpha = (0.4 + weight * 0.5) * tierIntensity;
+          // Atembewegung — Stärke skaliert mit Tier-Intensität.
+          const period = 320 + edgeTier * 200;
+          const breathe = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(tNow / period));
+          alpha *= breathe;
+        }
+      } else {
+        alpha = 0.25 + weight * 0.55;
+        if (isBridge) {
+          const breathe = 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(tNow / 480));
+          alpha = Math.min(1, alpha + 0.25) * breathe;
+        }
+      }
       if (searchHits && !searchHits.has(a.id) && !searchHits.has(b.id)) alpha *= 0.25;
 
-      // directional glow: brighter near target to suggest signal flow
+      // Dendrit-Verlauf: Farbe von Source-Neuron zu Target-Neuron.
       const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-      grad.addColorStop(0, hexAlpha(col, alpha * 0.5));
-      grad.addColorStop(1, hexAlpha(col, alpha));
+      grad.addColorStop(0, hexAlpha(colA, alpha * 0.85));
+      grad.addColorStop(0.5, hexAlpha(col, alpha));
+      grad.addColorStop(1, hexAlpha(colB, alpha * 0.85));
       ctx.strokeStyle = grad;
-      ctx.lineWidth = (e.kind === "hebbian" ? 0.7 : 1.1) + weight * 1.6;
+      // Schärferer Look mit Zoom-Kompensation: in Screen-Px konstant, sodass
+      // Linien beim Zoom-out lesbar bleiben und beim Zoom-in nicht fett werden.
+      const baseLW = edgeTier === 1
+        ? 1.2 + weight * 1.8
+        : isBridge
+        ? 1.0 + weight * 1.4
+        : edgeTier > 0
+        ? 0.8 + weight * 0.8
+        : (e.kind === "hebbian" ? 0.5 : 0.85) + weight * 0.9;
+      ctx.lineWidth = baseLW * zoomComp;
+      // Glow nur bei direkter Selektion-Connection oder Bridges (sparsam,
+      // sonst killt der Shadow die scharfen Konturen).
+      const wantGlow = edgeTier === 1 || (isBridge && !hlId);
+      if (wantGlow) {
+        ctx.save();
+        ctx.shadowColor = col;
+        ctx.shadowBlur = edgeTier === 1 ? 8 : 6;
+      }
       ctx.beginPath();
-      // slight curve so parallel edges don't overlap
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
       const nx = -(b.y - a.y), ny = b.x - a.x;
       const len = Math.sqrt(nx * nx + ny * ny) || 1;
-      const bend = (e.kind === "hebbian" ? 6 : 12) * ((e._bend ?? 1));
+      // Sanftere Kurven für futuristischen Look — gerade Linien wirken klarer.
+      const bendBase = isBridge ? 2 : edgeTier > 0 ? 4 : (e.kind === "hebbian" ? 4 : 8);
+      const bend = bendBase * ((e._bend ?? 1));
       const cpx = mx + (nx / len) * bend, cpy = my + (ny / len) * bend;
       ctx.moveTo(a.x, a.y);
       ctx.quadraticCurveTo(cpx, cpy, b.x, b.y);
       ctx.stroke();
+      if (wantGlow) ctx.restore();
 
-      // Arrow head for directed edges (not hebbian)
-      if (e.kind !== "hebbian" && !dim) {
+      // Flow-Pulse: bei Selektion-Edges wandert ein heller Punkt entlang —
+      // Geschwindigkeit ∝ Gewicht, Helligkeit ∝ Tier-Intensität. Direkte
+      // Synapsen pulsen schneller und intensiver, indirekte kaum sichtbar.
+      if (edgeTier > 0 && edgeTier <= 3) {
+        const tierIntensity = Math.pow(0.55, edgeTier - 1);
+        const speed = (0.00045 + weight * 0.0008) * (edgeTier === 1 ? 1 : 0.55);
+        // Phase rotiert kontinuierlich — modulo 1 für Loop.
+        const seed = ((a.x + b.x + a.y * 13 + b.y * 7) * 0.001) % 1;
+        const tphase = (tNow * speed + seed) % 1;
+        // Quadratische Bezier: Punkt bei tphase ausrechnen.
+        const u = 1 - tphase;
+        const px = u*u*a.x + 2*u*tphase*cpx + tphase*tphase*b.x;
+        const py = u*u*a.y + 2*u*tphase*cpy + tphase*tphase*b.y;
+        const dotR = (1.5 + weight * 1.8) * (edgeTier === 1 ? 1 : 0.7);
+        const dotAlpha = Math.min(1, 0.7 + weight * 0.3) * tierIntensity;
+        ctx.save();
+        ctx.shadowColor = col;
+        ctx.shadowBlur = edgeTier === 1 ? 10 : 5;
+        ctx.fillStyle = hexAlpha(col, dotAlpha);
+        ctx.beginPath();
+        ctx.arc(px, py, dotR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Arrow head for directed edges (not hebbian) — nur wenn deutlich sichtbar.
+      if (e.kind !== "hebbian" && !dim && alpha > 0.2) {
         const br = nodeRadius(b);
         const ang = Math.atan2(b.y - cpy, b.x - cpx);
         const ax = b.x - Math.cos(ang) * (br + 2);
         const ay = b.y - Math.sin(ang) * (br + 2);
-        ctx.fillStyle = hexAlpha(col, alpha + 0.15);
+        ctx.fillStyle = hexAlpha(col, Math.min(1, alpha + 0.15));
         ctx.beginPath();
         ctx.moveTo(ax, ay);
         ctx.lineTo(ax - Math.cos(ang - 0.42) * 6, ay - Math.sin(ang - 0.42) * 6);
@@ -4063,39 +4244,77 @@ const SYN = (() => {
       return true;
     });
 
-    // ------ nodes ----------------------------------------------------------
+    // ------ nodes (Soma-Look: Kategorie-Farbe füllt das Neuron) ------------
+    const nodeSelDepth = usingBFS ? state.selDepth : null;
     for (const n of state.nodes) {
       const r = nodeRadius(n);
-      const cat = CATEGORY_COLOURS[n.category] || "#7aa2f7";
+      const cat = nodeColor(n.category);
+      const high = nodeHighlight(n.category);
       const isHover = state.hover === n;
       const isSel   = state.selected === n;
-      const isDim   = hlId && n.id !== hlId && !isConnected(n, hl);
+      let nodeDepth;
+      if (nodeSelDepth) {
+        nodeDepth = nodeSelDepth.get(n.id);
+      } else if (hlId && n.id === hlId) {
+        nodeDepth = 0;
+      } else if (hlId && isConnected(n, hl)) {
+        nodeDepth = 1;
+      }
+      const isLinked = nodeDepth !== undefined && nodeDepth > 0;
+      const isDim   = hlId && n.id !== hlId && nodeDepth === undefined;
       const isHit   = searchHits ? searchHits.has(n.id) : true;
       const pulse   = isHover || isSel
-        ? 1.0 + 0.15 * Math.sin(now / 260)
+        ? 1.0 + 0.12 * Math.sin(now / 260)
         : isHit ? 1 : 0.6;
       const effR = r * pulse;
 
-      // outer glow
-      if (!isDim) {
-        const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, effR * 3.2);
-        glow.addColorStop(0, hexAlpha(cat, 0.45 * (isHit ? 1 : 0.5)));
+      // Halo — Kategorien-Pigment leuchtet in den Raum (organisch, weich).
+      if (!isDim || isLinked) {
+        const haloMult = isSel ? 3.0 : isLinked ? 2.0 + 0.4 / Math.max(1, nodeDepth) : 1.7;
+        const glowR = effR * haloMult;
+        const glowAlpha = (isSel ? 0.65 : isLinked ? 0.4 / Math.max(1, nodeDepth) : 0.28) * (isHit ? 1 : 0.5);
+        const glow = ctx.createRadialGradient(n.x, n.y, effR * 0.5, n.x, n.y, glowR);
+        glow.addColorStop(0, hexAlpha(cat, glowAlpha));
         glow.addColorStop(1, hexAlpha(cat, 0));
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, effR * 3.2, 0, Math.PI * 2);
+        ctx.arc(n.x, n.y, glowR, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // core
+      // Soma-Fill — Radial-Gradient innerhalb des Neurons gibt 3D-Sphären-
+      // Anmutung: heller Specular-Punkt links-oben, dunkler unten-rechts.
+      const fillAlpha = isDim
+        ? 0.28
+        : isLinked
+          ? Math.max(0.65, 1 - nodeDepth * 0.18)
+          : (isHit ? 1 : 0.65);
+      const fill = ctx.createRadialGradient(
+        n.x - effR * 0.4, n.y - effR * 0.4, effR * 0.1,
+        n.x, n.y, effR
+      );
+      fill.addColorStop(0,    hexAlpha(high, fillAlpha));
+      fill.addColorStop(0.45, hexAlpha(cat,  fillAlpha));
+      fill.addColorStop(1,    hexAlpha(cat,  fillAlpha * 0.7));
       ctx.beginPath();
       ctx.arc(n.x, n.y, effR, 0, Math.PI * 2);
-      const core = ctx.createRadialGradient(n.x - effR*0.35, n.y - effR*0.35, 0, n.x, n.y, effR);
-      const baseAlpha = isDim ? 0.35 : (isHit ? 1 : 0.6);
-      core.addColorStop(0, hexAlpha(lighten(cat, 0.35), baseAlpha));
-      core.addColorStop(1, hexAlpha(cat, baseAlpha));
-      ctx.fillStyle = core;
+      ctx.fillStyle = fill;
       ctx.fill();
+
+      // Outline — Kontur mit derselben Farbe, leicht heller.
+      ctx.lineWidth = (isSel ? 1.6 : isLinked ? 1.1 : 0.8) * zoomComp;
+      ctx.strokeStyle = hexAlpha(high, isDim ? 0.4 : (isSel ? 1 : 0.85));
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, effR + 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Specular-Highlight — kleiner heller Punkt links-oben (Soma-Glanz).
+      if (!isDim) {
+        ctx.fillStyle = hexAlpha("#ffffff", 0.55 * fillAlpha);
+        ctx.beginPath();
+        ctx.arc(n.x - effR * 0.4, n.y - effR * 0.4, effR * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       // ring for pinned / archived
       if (n.pinned || n.archived) {
@@ -4222,7 +4441,9 @@ const SYN = (() => {
     } else if (state.lastPointer && !state.lastPointer.moved && !state.lastPointer.node) {
       // click on empty → clear selection
       state.selected = null;
+      state.selDepth = null;
       $("syn-details").classList.remove("open");
+      if (three.fg && three.on) three.fg.refresh();
     }
     if (state.draggingNode && state.lastPointer && !state.lastPointer.moved) {
       state.draggingNode.fixed = false;      // tap-on-node without drag: release
@@ -4281,8 +4502,43 @@ const SYN = (() => {
     }
   }
 
+  // BFS-Tiefe vom selektierten Knoten — bestimmt visuelle Reichweite des
+  // "Organismus-Effekts": direkte Nachbarn bekommen die hellsten, aktivsten
+  // Verbindungen, weiter entfernte progressive abdunkelnde Spuren.
+  function computeSelectionDepth() {
+    if (!state.selected) { state.selDepth = null; return; }
+    const adj = new Map();
+    for (const e of state.edges) {
+      if (state.disabledTypes.has(e.type)) continue;
+      if (!adj.has(e.a)) adj.set(e.a, []);
+      if (!adj.has(e.b)) adj.set(e.b, []);
+      adj.get(e.a).push(e.b);
+      adj.get(e.b).push(e.a);
+    }
+    const depth = new Map();
+    const start = state.selected.id;
+    depth.set(start, 0);
+    let frontier = [start];
+    const MAX_DEPTH = 4;
+    for (let d = 0; d < MAX_DEPTH; d++) {
+      const next = [];
+      for (const id of frontier) {
+        for (const nb of adj.get(id) || []) {
+          if (!depth.has(nb)) { depth.set(nb, d + 1); next.push(nb); }
+        }
+      }
+      frontier = next;
+      if (frontier.length === 0) break;
+    }
+    state.selDepth = depth;
+  }
+
   async function selectNode(node) {
     state.selected = node;
+    computeSelectionDepth();
+    // ForceGraph muss neu rendern, damit Particle-Counts / Tube-Farben /
+    // Node-Highlight die aktualisierte selDepth lesen.
+    if (three.fg && three.on) three.fg.refresh();
     const pane = $("syn-details");
     pane.classList.add("open");
     $("syn-det-title").textContent = (node.label || node.id).slice(0, 160);
@@ -4374,8 +4630,10 @@ const SYN = (() => {
     const cat  = $("syn-category").value;
     const lim  = $("syn-limit").value;
     const minW = $("syn-min-weight").value;
+    const br   = $("syn-bridges")?.checked ? 1 : 0;
     const q = new URLSearchParams({ limit: lim, min_weight: minW, hebbian: String(hebb) });
     if (cat) q.set("category", cat);
+    if (br)  q.set("bridges", "1");
     try {
       const r = await fetch(`/relations-graph?${q}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -4388,11 +4646,22 @@ const SYN = (() => {
   }
 
   function ingest(data) {
-    // keep positions of nodes that persisted
+    // keep positions of nodes that persisted; seed new nodes near the stage
+    // center so the force solver has finite starting state (sonst NaN).
     const oldById = new Map(state.nodes.map(n => [n.id, n]));
+    const seedRect = stage ? stage.getBoundingClientRect() : { width: 800, height: 600 };
+    const seedCx = seedRect.width  / 2;
+    const seedCy = seedRect.height / 2;
     state.nodes = (data.nodes || []).map(n => {
       const old = oldById.get(n.id);
-      return { ...n, x: old?.x, y: old?.y, vx: 0, vy: 0, fixed: false };
+      let x = old?.x, y = old?.y;
+      if (x == null || !Number.isFinite(x)) {
+        x = seedCx + (Math.random() - 0.5) * 80;
+      }
+      if (y == null || !Number.isFinite(y)) {
+        y = seedCy + (Math.random() - 0.5) * 80;
+      }
+      return { ...n, x, y, z: old?.z, vx: 0, vy: 0, vz: old?.vz ?? 0, fixed: false };
     });
     state.byId = new Map(state.nodes.map(n => [n.id, n]));
 
@@ -4406,8 +4675,140 @@ const SYN = (() => {
       return { ...e, _a: a, _b: b, _bend: (c % 2 === 0 ? 1 : -1) * (1 + Math.floor(c / 2) * 0.8) };
     }).filter(e => e._a && e._b);
 
+    // ---- Inter-Cluster-Bridges -------------------------------------------
+    // Statt Union-Find auf disconnected Components (greift nur bei harter
+    // Filterung) machen wir Label-Propagation über alle gerenderten Edges:
+    // jeder Knoten bekommt initial sein eigenes Label, übernimmt iterativ
+    // das gewichtete Modus-Label seiner Nachbarn. So entstehen Communities
+    // auch im voll verbundenen Graph. Dann pro Community-Pair die schwerste
+    // verfügbare Kante (state.edges ∪ server-bridge_candidates) als Brücke
+    // markieren — die "spinale" Inter-Cluster-Verbindung. Effekt: dominante
+    // Achsen sind immer sichtbar, nicht nur unter Filter.
+    state.bridges = [];
+    state.communityCount = 0;
+    const mainEdgeCount = state.edges.length;
+
+    if (state.nodes.length >= 4 && state.edges.length > 0) {
+      const adj = new Map();
+      const addAdj = (a, b, w) => {
+        if (!adj.has(a)) adj.set(a, []);
+        adj.get(a).push({ to: b, w });
+      };
+      for (const e of state.edges) {
+        if (state.disabledTypes.has(e.type)) continue;
+        const w = e.weight ?? 0.5;
+        addAdj(e.a, e.b, w);
+        addAdj(e.b, e.a, w);
+      }
+
+      const labels = new Map();
+      for (const n of state.nodes) labels.set(n.id, n.id);
+
+      const order = state.nodes.map(n => n.id);
+      const MAX_ITER = 18;
+      for (let iter = 0; iter < MAX_ITER; iter++) {
+        // Fisher–Yates shuffle für asynchrone Updates (vermeidet Oszillation).
+        for (let i = order.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [order[i], order[j]] = [order[j], order[i]];
+        }
+        let changed = 0;
+        for (const id of order) {
+          const neigh = adj.get(id);
+          if (!neigh || neigh.length === 0) continue;
+          const counts = new Map();
+          for (const { to, w } of neigh) {
+            const lbl = labels.get(to);
+            counts.set(lbl, (counts.get(lbl) || 0) + w);
+          }
+          let best = labels.get(id), bestW = -1;
+          for (const [lbl, c] of counts) {
+            if (c > bestW || (c === bestW && lbl < best)) { bestW = c; best = lbl; }
+          }
+          if (best !== labels.get(id)) { labels.set(id, best); changed++; }
+        }
+        if (changed === 0) break;
+      }
+
+      const communitySet = new Set(labels.values());
+      state.communityCount = communitySet.size;
+      state.communityLabels = labels;
+
+      // Community-Größen zählen (große Communities kriegen Platz im Zentrum,
+      // kleine Cluster ringsum) — ergibt eine lesbare 2D-Karte.
+      const sizes = new Map();
+      for (const lbl of labels.values()) sizes.set(lbl, (sizes.get(lbl) || 0) + 1);
+      const sortedComs = [...sizes.entries()].sort((a, b) => b[1] - a[1]);
+      const stageRect = stage ? stage.getBoundingClientRect() : { width: 1000, height: 700 };
+      const cx = stageRect.width / 2, cy = stageRect.height / 2;
+      const R  = Math.min(stageRect.width, stageRect.height) * 0.36;
+      state.communityCenters = new Map();
+      sortedComs.forEach(([lbl, _], i) => {
+        if (i === 0) {
+          // Größter Cluster sitzt im Zentrum.
+          state.communityCenters.set(lbl, { x: cx, y: cy });
+        } else {
+          const a = ((i - 1) / Math.max(1, sortedComs.length - 1)) * Math.PI * 2 - Math.PI / 2;
+          state.communityCenters.set(lbl, {
+            x: cx + Math.cos(a) * R,
+            y: cy + Math.sin(a) * R,
+          });
+        }
+      });
+
+      // Pool aller Kandidaten für Brücken: bestehende Edges + Server-Pool.
+      const serverCandidates = (data.bridge_candidates || []).map(e => {
+        const a = state.byId.get(e.a), b = state.byId.get(e.b);
+        return { ...e, _a: a, _b: b, _fromServer: true };
+      }).filter(e => e._a && e._b && e._a !== e._b);
+
+      // Map(key=community-pair) -> beste Kante
+      const bestPerPair = new Map();
+      const considerEdge = (e) => {
+        const la = labels.get(e.a), lb = labels.get(e.b);
+        if (!la || !lb || la === lb) return;
+        const lo = la < lb ? la : lb;
+        const hi = la < lb ? lb : la;
+        const key = `${lo}|${hi}`;
+        const prev = bestPerPair.get(key);
+        if (!prev || (e.weight ?? 0) > (prev.weight ?? 0)) bestPerPair.set(key, e);
+      };
+      for (const e of state.edges) considerEdge(e);
+      for (const e of serverCandidates) considerEdge(e);
+
+      for (const e of bestPerPair.values()) {
+        if (e._fromServer) {
+          // Neue Brücke aus Server-Pool — Bend-Slot bestimmen und einreihen.
+          const key = [e._a.id, e._b.id].sort().join("|");
+          const c = pairCount.get(key) || 0;
+          pairCount.set(key, c + 1);
+          const bridgeEdge = {
+            ...e,
+            _bridge: true,
+            _bend: (c % 2 === 0 ? 1 : -1) * (1 + Math.floor(c / 2) * 0.8),
+          };
+          state.edges.push(bridgeEdge);
+          state.bridges.push(bridgeEdge);
+        } else {
+          // Bereits in state.edges — nur Flag setzen (kein Duplikat).
+          e._bridge = true;
+          state.bridges.push(e);
+        }
+      }
+    }
+
     $("syn-node-count").textContent = state.nodes.length;
-    $("syn-edge-count").textContent = state.edges.length;
+    $("syn-edge-count").textContent = mainEdgeCount;
+    const brChip = $("syn-bridge-chip");
+    if (brChip) {
+      if (state.bridges.length > 0) {
+        brChip.style.display = "";
+        const ccTxt = state.communityCount > 1 ? ` · ${state.communityCount} cluster` : "";
+        $("syn-bridge-count").textContent = `${state.bridges.length}${ccTxt}`;
+      } else {
+        brChip.style.display = "none";
+      }
+    }
     renderLegend(data.stats?.type_counts || {});
 
     if (!state.initialLoadDone || state.nodes.every(n => n.x == null)) {
@@ -4478,10 +4879,94 @@ const SYN = (() => {
     $("syn-category").addEventListener("change", load);
     $("syn-limit").addEventListener("change", load);
     $("syn-min-weight").addEventListener("change", load);
+    $("syn-bridges")?.addEventListener("change", load);
+
+    // ---- View-Slots (1/2/3) ----------------------------------------------
+    // klick → laden, shift+klick → speichern, alt/option+klick → löschen.
+    // Speichert Node-Positionen + Transform/Camera in localStorage.
+    function viewKey(slot) { return `mycelium.synview.${slot}`; }
+    function isViewSaved(slot) { return !!localStorage.getItem(viewKey(slot)); }
+    function refreshViewBadges() {
+      for (const slot of [1, 2, 3]) {
+        const btn = $(`syn-v${slot}`);
+        if (!btn) continue;
+        if (isViewSaved(slot)) btn.classList.add("active"); else btn.classList.remove("active");
+      }
+    }
+    function saveView(slot) {
+      const positions = {};
+      for (const n of state.nodes) {
+        positions[n.id] = { x: n.x, y: n.y };
+        if (n.z != null) positions[n.id].z = n.z;
+      }
+      const payload = {
+        mode: (typeof three !== "undefined" && three.on) ? "3d" : "2d",
+        transform: { ...state.transform },
+        positions,
+        savedAt: Date.now(),
+      };
+      if (payload.mode === "3d" && three.camera && three.controls) {
+        payload.camera = {
+          x: three.camera.position.x, y: three.camera.position.y, z: three.camera.position.z,
+        };
+        payload.target = {
+          x: three.controls.target.x, y: three.controls.target.y, z: three.controls.target.z,
+        };
+      }
+      try { localStorage.setItem(viewKey(slot), JSON.stringify(payload)); } catch (err) {
+        console.warn("view save failed", err);
+      }
+      refreshViewBadges();
+    }
+    function loadView(slot) {
+      const raw = localStorage.getItem(viewKey(slot));
+      if (!raw) return;
+      let payload;
+      try { payload = JSON.parse(raw); } catch { return; }
+
+      // Positionen anwenden auf vorhandene Nodes — fehlende ignorieren.
+      for (const n of state.nodes) {
+        const p = payload.positions?.[n.id];
+        if (!p) continue;
+        if (Number.isFinite(p.x)) n.x = p.x;
+        if (Number.isFinite(p.y)) n.y = p.y;
+        if (Number.isFinite(p.z)) n.z = p.z;
+        n.vx = 0; n.vy = 0; if (n.vz != null) n.vz = 0;
+      }
+      if (payload.transform) state.transform = { ...payload.transform };
+
+      // Modus-Wechsel synchronisieren.
+      const t3d = $("syn-3d");
+      if (payload.mode === "3d" && t3d && !t3d.checked) { t3d.checked = true; activate3D(); }
+      if (payload.mode === "2d" && t3d &&  t3d.checked) { t3d.checked = false; deactivate3D(); }
+
+      // Kamera in 3D nachziehen.
+      if (payload.mode === "3d" && three.camera && three.controls && payload.camera && payload.target) {
+        three.camera.position.set(payload.camera.x, payload.camera.y, payload.camera.z);
+        three.controls.target.set(payload.target.x, payload.target.y, payload.target.z);
+        three.controls.update();
+      }
+    }
+    function clearView(slot) {
+      localStorage.removeItem(viewKey(slot));
+      refreshViewBadges();
+    }
+    for (const slot of [1, 2, 3]) {
+      const btn = $(`syn-v${slot}`);
+      if (!btn) continue;
+      btn.addEventListener("click", (ev) => {
+        if (ev.shiftKey) saveView(slot);
+        else if (ev.altKey) clearView(slot);
+        else loadView(slot);
+      });
+    }
+    refreshViewBadges();
     $("syn-search").addEventListener("input", (e) => { state.searchTerm = e.target.value.trim(); });
     $("syn-details-close").addEventListener("click", () => {
       state.selected = null;
+      state.selDepth = null;
       $("syn-details").classList.remove("open");
+      if (three.fg && three.on) three.fg.refresh();
     });
 
     window.addEventListener("keydown", (e) => {
@@ -4491,7 +4976,9 @@ const SYN = (() => {
         initLayout({ w: rect.width, h: rect.height });
       } else if (e.key === "Escape") {
         state.selected = null;
+        state.selDepth = null;
         $("syn-details").classList.remove("open");
+        if (three.fg && three.on) three.fg.refresh();
       } else if (e.key === "+" || e.key === "=") {
         state.transform.k = Math.min(5, state.transform.k * 1.2);
       } else if (e.key === "-" || e.key === "_") {
@@ -4560,6 +5047,18 @@ const SYN = (() => {
     three.controls.enableDamping = true;
     three.controls.dampingFactor = 0.08;
     three.controls.rotateSpeed   = 0.7;
+    // Maus-Mapping invertieren: links = pan (2D-mäßig schieben), rechts =
+    // rotate (3D-Orbit). Default war umgekehrt.
+    three.controls.mouseButtons = {
+      LEFT:   THREE.MOUSE.PAN,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT:  THREE.MOUSE.ROTATE,
+    };
+    // Touch ebenfalls anpassen — ein Finger schiebt, zwei Finger rotieren.
+    three.controls.touches = {
+      ONE: THREE.TOUCH.PAN,
+      TWO: THREE.TOUCH.DOLLY_ROTATE,
+    };
     three.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
     const key = new THREE.DirectionalLight(0xffffff, 0.55);
     key.position.set(400, 600, 800); three.scene.add(key);
@@ -4600,8 +5099,16 @@ const SYN = (() => {
     // Shared unit-sphere geometry, per-node scale.
     const sphereGeo = new THREE.SphereGeometry(1, 14, 10);
     for (const n of state.nodes) {
-      const col = CATEGORY_COLOURS[n.category] || "#7aa2f7";
-      const mat = new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: 0.92 });
+      // Bio-Soma: Kategorie-Farbe ist Body-Pigment, nur dezenter Eigenglow,
+      // sonst sieht es aus wie Neon-Dragees statt biologische Zelle.
+      const cat = nodeColor(n.category);
+      const mat = new THREE.MeshLambertMaterial({
+        color: cat,
+        emissive: cat,
+        emissiveIntensity: 0.12,
+        transparent: true,
+        opacity: 0.88,
+      });
       const mesh = new THREE.Mesh(sphereGeo, mat);
       mesh.scale.setScalar(nodeRadius(n));
       mesh.position.set(n.x, n.y, n.z);
@@ -4609,16 +5116,31 @@ const SYN = (() => {
       three.scene.add(mesh);
       three.nodeMesh.set(n.id, mesh);
     }
+    // Line2 nutzt Pixel-basierte Linewidth (statt Treiber-1px). Pool für
+    // Resolution-Updates beim Resize.
+    three.lineMatPool = [];
+    const stageRect = stage ? stage.getBoundingClientRect() : { width: 800, height: 600 };
     for (const e of state.edges) {
       if (!e._a || !e._b) continue;
-      const col = RELATION_COLOURS[e.type] || "#5a6473";
+      const isBridge = !!e._bridge;
+      const col = edgeColorOf(e);
       const w   = e.weight ?? 0.5;
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
-      const mat = new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.18 + w * 0.55 });
-      const line = new THREE.Line(geom, mat);
+      const geom = new THREE.LineGeometry();
+      geom.setPositions([0,0,0, 0,0,0]); // placeholder, render3D updated jeden Frame
+      const mat = new THREE.LineMaterial({
+        color: col,
+        linewidth: isBridge ? 2.4 + w * 2.4 : 1.0 + w * 1.6, // in Pixeln
+        transparent: true,
+        opacity: isBridge ? Math.min(1, 0.7 + w * 0.3) : 0.45 + w * 0.45,
+        worldUnits: false,
+        dashed: false,
+      });
+      mat.resolution.set(stageRect.width, stageRect.height);
+      const line = new THREE.Line2(geom, mat);
+      line.computeLineDistances();
       three.scene.add(line);
-      three.edgeLines.push({ edge: e, line });
+      three.edgeLines.push({ edge: e, line, mat });
+      three.lineMatPool.push(mat);
     }
   }
 
@@ -4644,15 +5166,17 @@ const SYN = (() => {
       n._fz += -n.z * CENTER_PULL_3D;
     }
     // Edge spring — weight is the primary clustering driver.
+    // Bridges koppeln Cluster fester (kürzere Distanz, stärkere Feder), damit
+    // dominante Inter-Cluster-Synapsen die Cluster sichtbar zusammenziehen.
     for (const e of edges) {
       if (!e._a || !e._b) continue;
       if (state.disabledTypes.has(e.type)) continue;
       const a = e._a, b = e._b, w = e.weight ?? 0.5;
       const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
       const d = Math.sqrt(dx*dx + dy*dy + dz*dz) || 0.01;
-      const target = 70 + (1 - w) * 130;
+      const target = e._bridge ? 50 + (1 - w) * 90 : 70 + (1 - w) * 130;
       const diff = d - target;
-      const k = EDGE_K_3D * (0.4 + w);
+      const k = (e._bridge ? EDGE_K_3D * 1.6 : EDGE_K_3D) * (0.4 + w);
       const fx = (dx / d) * diff * k, fy = (dy / d) * diff * k, fz = (dz / d) * diff * k;
       a._fx += fx; a._fy += fy; a._fz += fz;
       b._fx -= fx; b._fy -= fy; b._fz -= fz;
@@ -4672,18 +5196,53 @@ const SYN = (() => {
   function render3D() {
     if (!three.on || !three.renderer) return;
     if (state.running) tick3D();
+    const hl = state.selected; // 3D-Selection nur über Klick, kein Hover-Tracking
+    const hlId = hl ? hl.id : null;
+    const sd = state.selDepth;
     for (const n of state.nodes) {
       const mesh = three.nodeMesh.get(n.id);
-      if (mesh) mesh.position.set(n.x, n.y, n.z);
+      if (!mesh) continue;
+      mesh.position.set(n.x, n.y, n.z);
+      if (hlId && sd) {
+        const d = sd.get(n.id);
+        if (d === 0) {
+          mesh.material.emissiveIntensity = 0.55;
+          mesh.material.opacity = 1;
+        } else if (d !== undefined) {
+          const tier = Math.pow(0.55, d - 1);
+          mesh.material.emissiveIntensity = 0.12 + tier * 0.3;
+          mesh.material.opacity = 0.5 + tier * 0.4;
+        } else {
+          mesh.material.emissiveIntensity = 0.05;
+          mesh.material.opacity = 0.3;
+        }
+      } else {
+        mesh.material.emissiveIntensity = 0.12;
+        mesh.material.opacity = 0.88;
+      }
     }
-    for (const { edge, line } of three.edgeLines) {
+    for (const item of three.edgeLines) {
+      const edge = item.edge, line = item.line;
       const a = edge._a, b = edge._b;
       if (!a || !b) continue;
-      const pos = line.geometry.attributes.position.array;
-      pos[0] = a.x; pos[1] = a.y; pos[2] = a.z;
-      pos[3] = b.x; pos[4] = b.y; pos[5] = b.z;
-      line.geometry.attributes.position.needsUpdate = true;
+      // Line2 wird via setPositions geupdatet (intern Instanzed-BufferGeo).
+      line.geometry.setPositions([a.x, a.y, a.z, b.x, b.y, b.z]);
       line.visible = !state.disabledTypes.has(edge.type);
+      const mat = line.material;
+      if (hlId && sd) {
+        const da = sd.get(a.id), db = sd.get(b.id);
+        if (da !== undefined && db !== undefined) {
+          const tier = Math.max(da, db);
+          mat.color.set(edgeColorOf(edge));
+          mat.opacity = tier === 1 ? 0.95 : Math.pow(0.55, tier - 1) * 0.6;
+        } else {
+          mat.opacity = edge._bridge ? 0.12 : 0.04;
+        }
+      } else {
+        mat.color.set(edgeColorOf(edge));
+        const w = edge.weight ?? 0.5;
+        mat.opacity = edge._bridge ? Math.min(1, 0.7 + w * 0.3) : 0.45 + w * 0.45;
+      }
     }
     three.controls.update();
     three.renderer.render(three.scene, three.camera);
@@ -4733,12 +5292,228 @@ const SYN = (() => {
     three.camera.aspect = r.width / r.height;
     three.camera.updateProjectionMatrix();
     three.renderer.setSize(r.width, r.height);
+    // Line2 needs resolution-update für korrekte Pixel-Linewidth.
+    if (three.lineMatPool) {
+      for (const m of three.lineMatPool) m.resolution.set(r.width, r.height);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // 3D-Render via 3d-force-graph: thick Tubes statt 1px-Linien, Curvature,
+  // Directional-Particles entlang Edges (Organismus-Effekt), Force-Layout.
+  // Daten kommen aus state.nodes/state.edges; ForceGraph baut sich seine
+  // eigene Welt drumherum auf.
+  // -------------------------------------------------------------------------
+  function buildGraphData() {
+    return {
+      nodes: state.nodes.map(n => ({ ...n })),
+      links: state.edges.map(e => ({
+        source: e.a, target: e.b,
+        type: e.type, kind: e.kind,
+        weight: e.weight ?? 0.5,
+        _bridge: !!e._bridge,
+      })),
+    };
+  }
+
+  function selDepthForLink(l) {
+    const sd = state.selDepth;
+    if (!sd) return null;
+    const sId = typeof l.source === "object" ? l.source.id : l.source;
+    const tId = typeof l.target === "object" ? l.target.id : l.target;
+    const da = sd.get(sId), db = sd.get(tId);
+    if (da === undefined || db === undefined) return null;
+    return Math.max(da, db);
+  }
+
+  function showSynError(msg) {
+    const el = $("syn-error");
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+  function clearSynError() {
+    const el = $("syn-error");
+    if (el) el.style.display = "none";
+  }
+
+  function ensureForceGraph() {
+    if (three.fg) return three.fg;
+    if (typeof ForceGraph3D === "undefined") {
+      const diag = [
+        "[3D] ForceGraph3D undefined.",
+        "THREE: " + typeof THREE + (typeof THREE === "object" ? " r" + THREE.REVISION : ""),
+        "OrbitControls: " + (typeof THREE === "object" ? typeof THREE.OrbitControls : "n/a"),
+        "Vendor: dashboard/vendor/3d-force-graph.min.js",
+        "→ Network-Tab: kommt der Vendor-Request mit 200?",
+      ].join("\n");
+      console.warn(diag);
+      showSynError(diag);
+      return null;
+    }
+    const mount = $("syn-canvas-3d");
+    if (!mount || !stage) {
+      showSynError("[3D] Mount-Element fehlt (syn-canvas-3d).");
+      return null;
+    }
+    mount.innerHTML = "";
+    // WICHTIG: mount muss SICHTBAR sein bevor ForceGraph seinen WebGL-Renderer
+    // initialisiert. In display:none startet WebGL bei 0×0 und renderth nichts.
+    mount.style.display = "block";
+    if (canvas) canvas.style.display = "none";
+    const r = stage.getBoundingClientRect();
+    try {
+      three.fg = ForceGraph3D({ controlType: "orbit" })(mount)
+        .backgroundColor("rgba(0,0,0,0)")
+        .width(Math.max(300, r.width))
+        .height(Math.max(300, r.height))
+        .showNavInfo(false)
+        .nodeId("id")
+        .nodeRelSize(4)
+        .nodeOpacity(0.92)
+      .nodeColor(n => {
+        const sd = state.selDepth;
+        if (sd) {
+          const d = sd.get(n.id);
+          if (d === 0) return nodeHighlight(n.category);
+          if (d !== undefined) return nodeColor(n.category);
+          return "#1e293b";
+        }
+        return nodeColor(n.category);
+      })
+      .nodeVal(n => 1.4 + Math.log(1 + (n.access || 0)) * 0.8 + (n.strength ?? 0.5) * 1.4)
+      .nodeThreeObject(n => {
+        // Unregelmäßiges Soma: Icosahedron mit deterministischer Vertex-
+        // Verformung. Jeder Knoten kriegt eine eigene "Zell-Form", keine
+        // Kugel mehr. Pinned Nodes kriegen einen zarten Ring.
+        const cat = nodeColor(n.category);
+        const high = nodeHighlight(n.category);
+        const baseR = 1.4 + Math.log(1 + (n.access || 0)) * 0.8 + (n.strength ?? 0.5) * 1.4;
+        const geo = new THREE.IcosahedronGeometry(baseR * 1.55, 2);
+        const pos = geo.attributes.position;
+        let h = 0;
+        const idStr = String(n.id || "");
+        for (let i = 0; i < idStr.length; i++) h = (h * 31 + idStr.charCodeAt(i)) | 0;
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+          const seed = (h ^ (i * 2654435761)) >>> 0;
+          const r = ((seed % 1000) / 1000 - 0.5) * 0.22; // ±11% Verformung
+          pos.setXYZ(i, x * (1 + r), y * (1 + r * 0.7), z * (1 + r * 0.5));
+        }
+        geo.computeVertexNormals();
+        const mat = new THREE.MeshLambertMaterial({
+          color: cat,
+          emissive: cat,
+          emissiveIntensity: 0.12,
+          transparent: true,
+          opacity: 0.92,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.set(
+          ((h * 7) % 1000) / 1000 * Math.PI * 2,
+          ((h * 13) % 1000) / 1000 * Math.PI * 2,
+          ((h * 17) % 1000) / 1000 * Math.PI * 2,
+        );
+        mesh.userData.nodeId = n.id;
+        // Specular-Highlight als Mini-Sphere oben-links — biologische Glanz-
+        // Anmutung, betont die 3D-Form.
+        const specGeo = new THREE.SphereGeometry(baseR * 0.35, 8, 6);
+        const specMat = new THREE.MeshBasicMaterial({
+          color: high, transparent: true, opacity: 0.55,
+        });
+        const spec = new THREE.Mesh(specGeo, specMat);
+        spec.position.set(-baseR * 0.55, baseR * 0.55, baseR * 0.4);
+        const grp = new THREE.Group();
+        grp.add(mesh);
+        grp.add(spec);
+        return grp;
+      })
+      .linkCurvature(l => l._bridge ? 0.05 : 0.18 + (1 - (l.weight ?? 0.5)) * 0.18)
+      .linkCurveRotation(l => {
+        // Stabile Pseudo-Random-Rotation pro Edge → Tubes liegen organisch
+        // im Raum, nicht alle in einer Ebene.
+        const sId = typeof l.source === "object" ? l.source.id : l.source;
+        const tId = typeof l.target === "object" ? l.target.id : l.target;
+        let h = 0;
+        const s = (sId || "") + (tId || "");
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+        return ((h >>> 0) % 360) / 360 * Math.PI * 2;
+      })
+      .linkWidth(l => {
+        const tier = selDepthForLink(l);
+        const base = 0.4 + (l.weight ?? 0.5) * 1.6;
+        if (tier === 1) return base * 1.6;
+        if (tier === 2) return base * 1.0;
+        if (tier !== null) return base * 0.7;
+        return base;
+      })
+      .linkOpacity(0.55)
+      .linkColor(l => {
+        if (l._bridge) return "#fcd34d";
+        const sNode = typeof l.source === "object" ? l.source : state.byId.get(l.source);
+        const tNode = typeof l.target === "object" ? l.target : state.byId.get(l.target);
+        const ca = sNode ? nodeColor(sNode.category) : "#0284c7";
+        const cb = tNode ? nodeColor(tNode.category) : "#0284c7";
+        return mixColors(ca, cb, 0.5);
+      })
+      .linkDirectionalParticles(l => {
+        const tier = selDepthForLink(l);
+        if (tier === 1) return 4;
+        if (tier === 2) return 2;
+        if (l._bridge) return 1;
+        return 0;
+      })
+      .linkDirectionalParticleWidth(l => 0.7 + (l.weight ?? 0.5) * 1.6)
+      .linkDirectionalParticleSpeed(l => {
+        const tier = selDepthForLink(l);
+        const base = 0.0025 + (l.weight ?? 0.5) * 0.008;
+        if (tier === 1) return base * 1.4;
+        if (tier === 2) return base * 0.7;
+        return base * 0.4;
+      })
+      .linkDirectionalParticleColor(l =>
+        l._bridge ? "#fcd34d" : nodeHighlight(
+          (typeof l.target === "object" ? l.target : state.byId.get(l.target))?.category || "general"
+        )
+      )
+      .onNodeClick((node) => {
+        const n = state.byId.get(node.id);
+        if (n) selectNode(n);
+        const distance = 110;
+        const dist = Math.hypot(node.x || 1, node.y || 1, node.z || 1) || 1;
+        const distRatio = 1 + distance / dist;
+        three.fg.cameraPosition(
+          { x: (node.x || 0) * distRatio, y: (node.y || 0) * distRatio, z: (node.z || 0) * distRatio },
+          node, 1400,
+        );
+      });
+
+      // Force-Layout-Tuning — defensiv, falls eine Force fehlt.
+      try {
+        const charge = three.fg.d3Force("charge");
+        if (charge && charge.strength) charge.strength(-180);
+        const linkF = three.fg.d3Force("link");
+        if (linkF && linkF.distance) linkF.distance(l => 60 + (1 - (l.weight ?? 0.5)) * 80);
+      } catch (e) { console.warn("[syn-3d] force tune skipped", e); }
+      return three.fg;
+    } catch (err) {
+      const stack = err?.stack ? String(err.stack).split("\n").slice(0, 3).join("\n") : String(err);
+      console.error("[syn-3d] ForceGraph init failed:", err);
+      showSynError("[3D] ForceGraph-Init fehlgeschlagen:\n" + stack);
+      three.fg = null;
+      mount.style.display = "none";
+      if (canvas) canvas.style.display = "";
+      const t3d = $("syn-3d");
+      if (t3d) t3d.checked = false;
+      return null;
+    }
   }
 
   function activate3D() {
     if (!three.scene) { if (!init3D()) return; }
     rebuildScene3D();
-    if (three.mount) three.mount.style.display = "block";
+    const mount = $("syn-canvas-3d");
+    if (mount) mount.style.display = "block";
     if (canvas) canvas.style.display = "none";
     const h2 = $("syn-hint-2d"), h3 = $("syn-hint-3d");
     if (h2) h2.style.display = "none";
@@ -4746,19 +5521,23 @@ const SYN = (() => {
     three.on = true;
     if (three.rafId) cancelAnimationFrame(three.rafId);
     three.rafId = requestAnimationFrame(render3D);
+    // Resolution für Line2-Materials nach Mount-Sichtbarkeit nachziehen.
+    requestAnimationFrame(() => resize3D());
   }
+
   function deactivate3D() {
     three.on = false;
     if (three.rafId) cancelAnimationFrame(three.rafId);
     three.rafId = null;
-    if (three.mount) three.mount.style.display = "none";
+    const mount = $("syn-canvas-3d");
+    if (mount) mount.style.display = "none";
     if (canvas) canvas.style.display = "";
     const h2 = $("syn-hint-2d"), h3 = $("syn-hint-3d");
     if (h2) h2.style.display = "";
     if (h3) h3.style.display = "none";
   }
 
-  return { activate, activate3D, deactivate3D, rebuildScene3D, resize3D, isOn3D: () => three.on };
+  return { activate, activate3D, deactivate3D, resize3D, isOn3D: () => three.on };
 })();
 
 // tab switching — append synapses activation
