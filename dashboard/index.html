@@ -473,6 +473,11 @@
     .syn-legend .row { font-size: 10px; }
   }
 </style>
+<!-- Three.js (UMD bundle, last UMD release before module-only) — powers the
+     synapses tab's 3D Hebbian-graph visualisation. Loaded from a pinned CDN
+     so the dashboard works offline-after-first-load via browser cache. -->
+<script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.149.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
   <aside class="sidebar" id="sidebar">
@@ -1055,6 +1060,9 @@
 
   <div class="tab-panel" id="panel-synapses">
     <div class="syn-toolbar">
+      <label>3d
+        <input type="checkbox" id="syn-3d" checked />
+      </label>
       <label>hebb
         <input type="checkbox" id="syn-hebbian" checked />
       </label>
@@ -1093,6 +1101,7 @@
     </div>
     <div class="syn-stage" id="syn-stage">
       <canvas class="syn-canvas" id="syn-canvas"></canvas>
+      <div id="syn-canvas-3d" style="position:absolute;inset:0;display:none"></div>
       <div class="syn-legend" id="syn-legend"></div>
       <div class="syn-details" id="syn-details">
         <button class="close-x" id="syn-details-close">✕</button>
@@ -1113,7 +1122,8 @@
         </div>
       </div>
       <div class="syn-hud" id="syn-hud">zoom 1.00 · —</div>
-      <div class="syn-hint">drag: schwenken · rad/pinch: zoom · node-click: details · drag node: fixieren · R: layout</div>
+      <div class="syn-hint" id="syn-hint-2d">drag: schwenken · rad/pinch: zoom · node-click: details · drag node: fixieren · R: layout</div>
+      <div class="syn-hint" id="syn-hint-3d" style="display:none">drag: rotieren · rechte maus / shift+drag: schwenken · rad: zoom · klick: details · R: layout</div>
     </div>
   </div><!-- /panel-synapses -->
 
@@ -3954,6 +3964,12 @@ const SYN = (() => {
 
   // ---- rendering ----------------------------------------------------------
   function render() {
+    // 3D takes over when its toggle is on — see render3D below.
+    if (typeof three !== "undefined" && three.on) {
+      // Still keep this RAF chain alive so 2D resumes instantly on toggle off.
+      rafId = requestAnimationFrame(render);
+      return;
+    }
     if (!ctx || !canvas) return;
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (state.running) tick(w, h);
@@ -4387,6 +4403,15 @@ const SYN = (() => {
       state.initialLoadDone = true;
     }
     state.running = true;
+
+    // 3D handoff: if the user has the 3d toggle on (default), build/refresh
+    // the Three.js scene from the freshly loaded data. The 2D render loop
+    // early-returns while three.on is true.
+    const t3d = $("syn-3d");
+    if (t3d && t3d.checked) {
+      // Defer one tick so the toolbar reflow doesn't fight the canvas resize.
+      requestAnimationFrame(() => activate3D());
+    }
   }
 
   function recenterAll() {
@@ -4430,6 +4455,12 @@ const SYN = (() => {
     $("syn-reload").addEventListener("click", load);
     $("syn-recenter").addEventListener("click", recenterAll);
     $("syn-pulse").addEventListener("click", globalPulse);
+    const t3d = $("syn-3d");
+    if (t3d) {
+      t3d.addEventListener("change", (e) => {
+        if (e.target.checked) activate3D(); else deactivate3D();
+      });
+    }
     $("syn-hebbian").addEventListener("change", load);
     $("syn-category").addEventListener("change", load);
     $("syn-limit").addEventListener("change", load);
@@ -4455,10 +4486,14 @@ const SYN = (() => {
       }
     });
 
-    const ro = new ResizeObserver(() => resizeCanvas());
+    const ro = new ResizeObserver(() => { resizeCanvas(); resize3D(); });
     ro.observe(stage);
 
     rafId = requestAnimationFrame(render);
+
+    // If the toolbar default is 3d (checked), spin up Three.js once data loads.
+    // We can't init now because state.nodes is empty before the first load —
+    // see load()'s tail-hook below.
   }
 
   function activate() {
@@ -4467,7 +4502,250 @@ const SYN = (() => {
     if (!state.initialLoadDone) load();
   }
 
-  return { activate };
+  // ==========================================================================
+  // 3D rendering layer (Three.js) — sits alongside the 2D canvas.
+  // ==========================================================================
+  // When the toolbar's "3d" checkbox is on, the 2D render loop early-returns
+  // and this module takes over: spheres for nodes, lines for edges,
+  // OrbitControls for the camera, raycaster for node picking. The force
+  // simulation is the 2D one extended to a z-axis — depth gives clusters a
+  // third dimension to spread into, which collapses the overlapping-blob
+  // look that 2D produces on dense graphs (the "ich muss die synapsen
+  // immer neu auseinander ziehen" complaint).
+  //
+  // Crucially: NO category-ring centering here. Clusters emerge purely from
+  // edge density (with weight as the spring strength), which is the whole
+  // point of intention 43e2c187 — räumliche Nähe = mehr gemeinsame Synapsen.
+
+  const three = {
+    on: false, mount: null, renderer: null, scene: null, camera: null,
+    controls: null, raycaster: null, pointer: null,
+    nodeMesh: new Map(), edgeLines: [], rafId: null,
+  };
+
+  const REPULSION_3D   = 600;
+  const EDGE_K_3D      = 0.06;
+  const CENTER_PULL_3D = 0.0008;
+  const DAMP_3D        = 0.85;
+  const VMAX_3D        = 12;
+
+  function init3D() {
+    if (typeof THREE === "undefined") { console.warn("[syn-3d] three.js not loaded"); return false; }
+    three.mount = $("syn-canvas-3d");
+    if (!three.mount || !stage) return false;
+    const r = stage.getBoundingClientRect();
+    three.scene  = new THREE.Scene();
+    three.camera = new THREE.PerspectiveCamera(55, Math.max(1, r.width) / Math.max(1, r.height), 1, 8000);
+    three.camera.position.set(0, 0, 900);
+    three.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    three.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    three.renderer.setSize(r.width, r.height);
+    three.renderer.setClearColor(0x000000, 0);
+    three.mount.innerHTML = "";
+    three.mount.appendChild(three.renderer.domElement);
+    three.controls = new THREE.OrbitControls(three.camera, three.renderer.domElement);
+    three.controls.enableDamping = true;
+    three.controls.dampingFactor = 0.08;
+    three.controls.rotateSpeed   = 0.7;
+    three.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const key = new THREE.DirectionalLight(0xffffff, 0.55);
+    key.position.set(400, 600, 800); three.scene.add(key);
+    const fill = new THREE.DirectionalLight(0xa8c1ff, 0.25);
+    fill.position.set(-500, -200, 300); three.scene.add(fill);
+    three.raycaster = new THREE.Raycaster();
+    three.pointer   = new THREE.Vector2();
+    three.renderer.domElement.addEventListener("pointerdown", on3DPointerDown);
+    three.renderer.domElement.addEventListener("pointermove", on3DPointerMove);
+    three.renderer.domElement.style.cursor = "grab";
+    return true;
+  }
+
+  function rebuildScene3D() {
+    if (!three.scene) return;
+    for (const mesh of three.nodeMesh.values()) {
+      three.scene.remove(mesh);
+      mesh.geometry.dispose(); mesh.material.dispose();
+    }
+    three.nodeMesh.clear();
+    for (const { line } of three.edgeLines) {
+      three.scene.remove(line);
+      line.geometry.dispose(); line.material.dispose();
+    }
+    three.edgeLines = [];
+
+    // Seed z + initial spread so the force sim starts in a non-degenerate
+    // volume, not a flat z=0 plane.
+    for (const n of state.nodes) {
+      if (n.z == null)  n.z  = (Math.random() - 0.5) * 240;
+      if (n.vz == null) n.vz = 0;
+      if (n.x == null)  n.x  = (Math.random() - 0.5) * 240;
+      if (n.y == null)  n.y  = (Math.random() - 0.5) * 240;
+      if (n.vx == null) n.vx = 0;
+      if (n.vy == null) n.vy = 0;
+    }
+
+    // Shared unit-sphere geometry, per-node scale.
+    const sphereGeo = new THREE.SphereGeometry(1, 14, 10);
+    for (const n of state.nodes) {
+      const col = CATEGORY_COLOURS[n.category] || "#7aa2f7";
+      const mat = new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: 0.92 });
+      const mesh = new THREE.Mesh(sphereGeo, mat);
+      mesh.scale.setScalar(nodeRadius(n));
+      mesh.position.set(n.x, n.y, n.z);
+      mesh.userData.nodeId = n.id;
+      three.scene.add(mesh);
+      three.nodeMesh.set(n.id, mesh);
+    }
+    for (const e of state.edges) {
+      if (!e._a || !e._b) continue;
+      const col = RELATION_COLOURS[e.type] || "#5a6473";
+      const w   = e.weight ?? 0.5;
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
+      const mat = new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.18 + w * 0.55 });
+      const line = new THREE.Line(geom, mat);
+      three.scene.add(line);
+      three.edgeLines.push({ edge: e, line });
+    }
+  }
+
+  function tick3D() {
+    const nodes = state.nodes, edges = state.edges;
+    if (nodes.length === 0) return;
+    // Naive O(n²) repulsion — fine up to ~1.5k nodes at 60fps.
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      n._fx = 0; n._fy = 0; n._fz = 0;
+      for (let j = 0; j < nodes.length; j++) {
+        if (i === j) continue;
+        const o = nodes[j];
+        let dx = n.x - o.x, dy = n.y - o.y, dz = n.z - o.z;
+        let d2 = dx*dx + dy*dy + dz*dz;
+        if (d2 < 0.5) { dx = Math.random()-0.5; dy = Math.random()-0.5; dz = Math.random()-0.5; d2 = 0.5; }
+        const d = Math.sqrt(d2);
+        const f = REPULSION_3D / d2;
+        n._fx += (dx / d) * f; n._fy += (dy / d) * f; n._fz += (dz / d) * f;
+      }
+      n._fx += -n.x * CENTER_PULL_3D;
+      n._fy += -n.y * CENTER_PULL_3D;
+      n._fz += -n.z * CENTER_PULL_3D;
+    }
+    // Edge spring — weight is the primary clustering driver.
+    for (const e of edges) {
+      if (!e._a || !e._b) continue;
+      if (state.disabledTypes.has(e.type)) continue;
+      const a = e._a, b = e._b, w = e.weight ?? 0.5;
+      const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+      const d = Math.sqrt(dx*dx + dy*dy + dz*dz) || 0.01;
+      const target = 70 + (1 - w) * 130;
+      const diff = d - target;
+      const k = EDGE_K_3D * (0.4 + w);
+      const fx = (dx / d) * diff * k, fy = (dy / d) * diff * k, fz = (dz / d) * diff * k;
+      a._fx += fx; a._fy += fy; a._fz += fz;
+      b._fx -= fx; b._fy -= fy; b._fz -= fz;
+    }
+    for (const n of nodes) {
+      if (n.fixed) { n.vx = 0; n.vy = 0; n.vz = 0; continue; }
+      n.vx = (n.vx + n._fx) * DAMP_3D;
+      n.vy = (n.vy + n._fy) * DAMP_3D;
+      n.vz = (n.vz + n._fz) * DAMP_3D;
+      if (n.vx >  VMAX_3D) n.vx =  VMAX_3D; if (n.vx < -VMAX_3D) n.vx = -VMAX_3D;
+      if (n.vy >  VMAX_3D) n.vy =  VMAX_3D; if (n.vy < -VMAX_3D) n.vy = -VMAX_3D;
+      if (n.vz >  VMAX_3D) n.vz =  VMAX_3D; if (n.vz < -VMAX_3D) n.vz = -VMAX_3D;
+      n.x += n.vx; n.y += n.vy; n.z += n.vz;
+    }
+  }
+
+  function render3D() {
+    if (!three.on || !three.renderer) return;
+    if (state.running) tick3D();
+    for (const n of state.nodes) {
+      const mesh = three.nodeMesh.get(n.id);
+      if (mesh) mesh.position.set(n.x, n.y, n.z);
+    }
+    for (const { edge, line } of three.edgeLines) {
+      const a = edge._a, b = edge._b;
+      if (!a || !b) continue;
+      const pos = line.geometry.attributes.position.array;
+      pos[0] = a.x; pos[1] = a.y; pos[2] = a.z;
+      pos[3] = b.x; pos[4] = b.y; pos[5] = b.z;
+      line.geometry.attributes.position.needsUpdate = true;
+      line.visible = !state.disabledTypes.has(edge.type);
+    }
+    three.controls.update();
+    three.renderer.render(three.scene, three.camera);
+    const hud = $("syn-hud");
+    if (hud) hud.textContent = `3d · ${state.nodes.length}n / ${state.edges.length}e` +
+      (state.selected ? ` · ⟲ ${(state.selected.label || "").slice(0, 40)}` : "");
+    three.rafId = requestAnimationFrame(render3D);
+  }
+
+  function on3DPointerDown(e) {
+    if (!three.on || !three.lastPointerStart) three.lastPointerStart = { x: e.clientX, y: e.clientY };
+    const rect = three.renderer.domElement.getBoundingClientRect();
+    three.pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    three.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    three.raycaster.setFromCamera(three.pointer, three.camera);
+    const meshes = [...three.nodeMesh.values()];
+    const hits = three.raycaster.intersectObjects(meshes, false);
+    // Track click vs drag — only treat as click if the mouse barely moved
+    // by pointerup. OrbitControls handles drag on the same element.
+    three._downAt = { x: e.clientX, y: e.clientY, hitId: hits[0]?.object.userData.nodeId ?? null };
+    three.renderer.domElement.addEventListener("pointerup", on3DPointerUp, { once: true });
+  }
+  function on3DPointerUp(e) {
+    if (!three.on || !three._downAt) return;
+    const dx = e.clientX - three._downAt.x, dy = e.clientY - three._downAt.y;
+    if (dx*dx + dy*dy < 16 && three._downAt.hitId) {
+      const node = state.byId.get(three._downAt.hitId);
+      if (node) selectNode(node);
+    }
+    three._downAt = null;
+  }
+  function on3DPointerMove(e) {
+    if (!three.on) return;
+    const rect = three.renderer.domElement.getBoundingClientRect();
+    three.pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    three.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    three.raycaster.setFromCamera(three.pointer, three.camera);
+    const meshes = [...three.nodeMesh.values()];
+    const hits = three.raycaster.intersectObjects(meshes, false);
+    three.renderer.domElement.style.cursor = hits.length > 0 ? "pointer" : "grab";
+  }
+
+  function resize3D() {
+    if (!three.on || !three.renderer || !stage) return;
+    const r = stage.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    three.camera.aspect = r.width / r.height;
+    three.camera.updateProjectionMatrix();
+    three.renderer.setSize(r.width, r.height);
+  }
+
+  function activate3D() {
+    if (!three.scene) { if (!init3D()) return; }
+    rebuildScene3D();
+    if (three.mount) three.mount.style.display = "block";
+    if (canvas) canvas.style.display = "none";
+    const h2 = $("syn-hint-2d"), h3 = $("syn-hint-3d");
+    if (h2) h2.style.display = "none";
+    if (h3) h3.style.display = "";
+    three.on = true;
+    if (three.rafId) cancelAnimationFrame(three.rafId);
+    three.rafId = requestAnimationFrame(render3D);
+  }
+  function deactivate3D() {
+    three.on = false;
+    if (three.rafId) cancelAnimationFrame(three.rafId);
+    three.rafId = null;
+    if (three.mount) three.mount.style.display = "none";
+    if (canvas) canvas.style.display = "";
+    const h2 = $("syn-hint-2d"), h3 = $("syn-hint-3d");
+    if (h2) h2.style.display = "";
+    if (h3) h3.style.display = "none";
+  }
+
+  return { activate, activate3D, deactivate3D, rebuildScene3D, resize3D, isOn3D: () => three.on };
 })();
 
 // tab switching — append synapses activation
