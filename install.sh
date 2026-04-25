@@ -184,7 +184,7 @@ step_banner() {
   cat <<'BANNER'
 
    ╔══════════════════════════════════════════╗
-   ║   mycelium  —  real open AI              ║
+   ║   mycelium  —  your AI                   ║
    ║   one-liner installer (mac / linux)      ║
    ╚══════════════════════════════════════════╝
 BANNER
