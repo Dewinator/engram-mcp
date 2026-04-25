@@ -75,6 +75,47 @@ export const MARK_USEFUL_EVENT_TYPE = "mark_useful" as const;
 export const RECALLED_EVENT_TYPE = "recalled" as const;
 
 /**
+ * Wire literals for the `contradiction_detected` / `contradiction_resolved`
+ * memory_event types.
+ *
+ * compute_affect() (docs/affect-observables.md §frustration) reads
+ * memory_events filtered by both literals to compute `open_conflicts`:
+ *
+ *   open_conflicts = count(memory_events WHERE event_type='contradiction_detected'
+ *                          AND created_at > now()-'48h'
+ *                          AND NOT EXISTS (…resolution event with same trace_id…))
+ *
+ * The "…resolution event…" sub-clause matches `event_type='contradiction_resolved'`
+ * with the same trace_id as the detection — see services/relations.ts
+ * `maybeEmitContradictionResolved` for the closer logic. The two literals
+ * are co-load-bearing: a silent rename of *either* would zero out the
+ * frustration `open_conflicts` term in different ways:
+ *
+ *   - rename `contradiction_detected` → frustration sees zero conflicts
+ *     (the count(*) in the outer query collapses to 0).
+ *   - rename `contradiction_resolved` → frustration over-counts indefinitely
+ *     (no resolutions match, so every detected row stays "open" forever).
+ *
+ * Each literal is emitted from a single producer:
+ *   - `contradiction_detected` — `agents/conscience-agent.ts` (one bus.emit
+ *     site, alongside `conscience_warning` with shared trace_id).
+ *   - `contradiction_resolved` — `services/relations.ts`
+ *     (`maybeEmitContradictionResolved` after a successful supersede_memory).
+ *
+ * `services/relations.ts` also reads `contradiction_detected` via
+ * `.eq("event_type", …)` to find the detection it should pair with the
+ * resolution — so that lookup must use the same constant as the producer,
+ * or the resolver silently stops finding any detections to close.
+ *
+ * Centralising the literals here means a rename is a single deliberate edit
+ * across producer + lookup + spec doc + SQL — same defensive pattern as
+ * MARK_USEFUL_EVENT_TYPE / RECALLED_EVENT_TYPE. Pinned in
+ * `affect-contradiction-event-types.test.ts`.
+ */
+export const CONTRADICTION_DETECTED_EVENT_TYPE = "contradiction_detected" as const;
+export const CONTRADICTION_RESOLVED_EVENT_TYPE = "contradiction_resolved" as const;
+
+/**
  * JSONB payload for `recalled` memory_events.
  *
  * The compute_affect() SQL formulas (docs/affect-observables.md §curiosity
