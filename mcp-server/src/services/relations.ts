@@ -1,4 +1,8 @@
 import { PostgrestClient } from "@supabase/postgrest-js";
+import {
+  CONTRADICTION_DETECTED_EVENT_TYPE,
+  CONTRADICTION_RESOLVED_EVENT_TYPE,
+} from "./supabase.js";
 
 /**
  * Memory-to-memory relations graph (Migration 046 + 047).
@@ -129,7 +133,7 @@ export class RelationsService {
     const { data, error } = await this.db
       .from("memory_events")
       .select("trace_id, memory_id, context")
-      .eq("event_type", "contradiction_detected")
+      .eq("event_type", CONTRADICTION_DETECTED_EVENT_TYPE)
       .in("memory_id", [oldId, newId])
       .order("created_at", { ascending: false })
       .limit(20);
@@ -142,7 +146,7 @@ export class RelationsService {
     if (!match) return;
     const { error: logErr } = await this.db.rpc("log_memory_event", {
       p_memory_id:  oldId,
-      p_event_type: "contradiction_resolved",
+      p_event_type: CONTRADICTION_RESOLVED_EVENT_TYPE,
       p_source:     "mcp:supersede_memory",
       p_context:    buildContradictionResolvedContext(newId),
       p_trace_id:   match.trace_id,

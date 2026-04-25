@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { PostgrestClient } from "@supabase/postgrest-js";
 import type { Agent, AgentEventBus, BusEvent } from "./event-bus.js";
+import { CONTRADICTION_DETECTED_EVENT_TYPE } from "../services/supabase.js";
 
 /**
  * ConscienceAgent
@@ -185,7 +186,7 @@ export class ConscienceAgent implements Agent {
       verdict.reason ?? "",
     );
     await bus.emit(mem.id, "conscience_warning",    this.name, payload, traceId);
-    await bus.emit(mem.id, "contradiction_detected", this.name, payload, traceId);
+    await bus.emit(mem.id, CONTRADICTION_DETECTED_EVENT_TYPE, this.name, payload, traceId);
     const { error: chainErr } = await this.db.rpc("chain_memories", {
       p_a_id:   mem.id,
       p_b_id:   verdict.contradicts_id,
