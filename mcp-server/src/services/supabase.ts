@@ -38,6 +38,23 @@ function fmtErr(err: unknown): string {
 }
 
 /**
+ * Wire literal for the `mark_useful` memory_event type.
+ *
+ * compute_affect() (docs/affect-observables.md §satisfaction) reads
+ * memory_events filtered by `event_type='mark_useful'` to compute
+ * `useful_delta`. The string is emitted from two independent call sites:
+ *
+ *   - `MemoryService.emitMarkUseful` (memory-subject path, this file)
+ *   - `ExperienceService.markUseful` (experience-subject path, services/experiences.ts)
+ *
+ * Both must agree, and both must agree with the SQL formula. Centralising
+ * the literal here means a rename forces a single edit (and the test in
+ * `affect-event-types.test.ts` then fails until the spec doc is updated
+ * too), instead of two emit sites silently drifting apart.
+ */
+export const MARK_USEFUL_EVENT_TYPE = "mark_useful" as const;
+
+/**
  * JSONB payload for `recalled` memory_events.
  *
  * The compute_affect() SQL formulas (docs/affect-observables.md §curiosity
@@ -192,7 +209,7 @@ export class MemoryService {
   async emitMarkUseful(memoryId: string | null, source: string): Promise<void> {
     const { error } = await this.db.rpc("log_memory_event", {
       p_memory_id:  memoryId,
-      p_event_type: "mark_useful",
+      p_event_type: MARK_USEFUL_EVENT_TYPE,
       p_source:     source,
       p_context:    {},
       p_trace_id:   null,
