@@ -1954,7 +1954,15 @@ function renderSleep(sleepData) {
       ["letzter lauf",   `${formatDate(last.started_at)} <span class="meta" style="font-size:11px">(${last.trigger_source}, ${last.duration_ms ?? "—"}ms)</span>`],
       ["status",         `<span style="color:${last.status === "ok" ? "var(--good)" : last.status === "partial" ? "var(--warn)" : "var(--bad)"}">${last.status}</span>`],
       ["SWS",            `vergessen ${sws.forgotten ?? 0} · konsolidiert ${sws.consolidated ?? 0} · dedup ${sws.deduped ?? 0}`],
-      ["REM",            `cluster ${rem.clusters_found ?? 0} · lessons dedup ${rem.lessons_deduped ?? 0} · traits promoted ${rem.traits_promoted ?? 0}`],
+      ["REM",            (() => {
+        const t  = rem.lessons_thinking_chars_total ?? 0;
+        const w  = rem.lessons_with_thinking ?? 0;
+        const avg = w > 0 ? Math.round(t / w) : 0;
+        const reasoningChip = avg > 0
+          ? ` · <span title="durchschnitt thinking-zeichen pro lesson — ein leuchtfeuer dass der reasoning-pfad gefeuert hat">🧠 ø${avg.toLocaleString("de")} chars</span>`
+          : "";
+        return `cluster ${rem.clusters_found ?? 0} · lessons dedup ${rem.lessons_deduped ?? 0} · traits promoted ${rem.traits_promoted ?? 0}${reasoningChip}`;
+      })()],
       ["metacognition",  meta.persisted ? "✓ self-model aktualisiert" : "—"],
       ["weekly fitness", fit.ran ? "✓ snapshot" : `— ${fit.skipped_reason || ""}`],
       ["14-tage-stats",  `${s14.runs_ok ?? 0}/${s14.runs_total ?? 0} ok · ø ${s14.avg_duration_ms ?? 0}ms`],
@@ -1967,17 +1975,22 @@ function renderSleep(sleepData) {
     return;
   }
   $("sleep-history-table").innerHTML = `
-    <thead><tr><th>gestartet</th><th>status</th><th>sws</th><th>rem</th><th>meta</th><th>dauer</th></tr></thead>
+    <thead><tr><th>gestartet</th><th>status</th><th>sws</th><th>rem</th><th>🧠 reasoning</th><th>meta</th><th>dauer</th></tr></thead>
     <tbody>${recent.map(r => {
       const sws = r.sws_result || {};
       const rem = r.rem_result || {};
       const meta = r.metacog_result || {};
       const statusColor = r.status === "ok" ? "var(--good)" : r.status === "partial" ? "var(--warn)" : r.status === "failed" ? "var(--bad)" : "var(--text-dim)";
+      const w = rem.lessons_with_thinking ?? 0;
+      const t = rem.lessons_thinking_chars_total ?? 0;
+      const avg = w > 0 ? Math.round(t / w) : 0;
+      const reasoning = w > 0 ? `${w}× ø${avg.toLocaleString("de")}` : "—";
       return `<tr>
          <td class="meta">${formatDate(r.started_at)}</td>
          <td style="color:${statusColor}">${r.status}</td>
          <td class="meta">f${sws.forgotten ?? 0} · c${sws.consolidated ?? 0} · d${sws.deduped ?? 0}</td>
          <td class="meta">cl${rem.clusters_found ?? 0} · dl${rem.lessons_deduped ?? 0} · pt${rem.traits_promoted ?? 0}</td>
+         <td class="meta">${reasoning}</td>
          <td class="meta">${meta.persisted ? "✓" : "—"}</td>
          <td class="meta">${r.duration_ms ?? "—"}ms</td>
        </tr>`;

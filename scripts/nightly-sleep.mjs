@@ -153,6 +153,13 @@ async function runRem() {
     lessons_skipped_low_conf: 0,
     lessons_deduped: 0,
     traits_promoted: 0,
+    // Reasoning telemetry (Ollama 0.20+ think:true). lessons_with_thinking
+    // is the count of synthesise calls where the model emitted any chars
+    // into message.thinking — gives a yes/no signal that the reasoning
+    // pathway actually fired. lessons_thinking_chars_total summed for the
+    // dashboard avg.
+    lessons_with_thinking: 0,
+    lessons_thinking_chars_total: 0,
     errors: [],
   };
 
@@ -170,6 +177,12 @@ async function runRem() {
         supabaseUrl: SUPABASE_URL,
         supabaseKey: SUPABASE_KEY,
       });
+      // Reasoning telemetry: synthesizeCluster annotates the result with
+      // _thinking_chars when Ollama returned a non-empty thinking field.
+      if (typeof synth?._thinking_chars === "number" && synth._thinking_chars > 0) {
+        out.lessons_with_thinking += 1;
+        out.lessons_thinking_chars_total += synth._thinking_chars;
+      }
       if (!synth.lesson || synth.confidence < REM_MIN_CONFIDENCE) {
         out.lessons_skipped_low_conf += 1;
         continue;
