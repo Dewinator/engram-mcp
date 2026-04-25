@@ -31,6 +31,53 @@ interface ConscienceVerdict {
   reason?:           string;
 }
 
+/**
+ * JSONB payload for `contradiction_detected` (and the sibling
+ * `conscience_warning`) memory_events emitted by ConscienceAgent.
+ *
+ * The `contradicts_id` key is load-bearing: `findResolutionMatch` in
+ * services/relations.ts reads `context.contradicts_id` to pair a
+ * `contradiction_detected` row with its eventual `contradiction_resolved`
+ * counterpart (same trace_id) when `supersede_memory` runs. That pairing
+ * closes the open-conflict loop counted by compute_affect()'s frustration
+ * term — see docs/affect-observables.md §frustration:
+ *
+ *   open_conflicts = count(memory_events WHERE event_type='contradiction_detected'
+ *                          AND created_at > now()-'48h'
+ *                          AND NOT EXISTS (…resolution event with same trace_id…))
+ *
+ * A silent rename of `contradicts_id` here would not break compilation
+ * (the payload is JSONB) and would not break relations.test.ts (which
+ * tests the matcher in isolation), but would zero out the resolution
+ * pairing — frustration would then over-count open conflicts indefinitely.
+ *
+ * The unit tests in `__tests__/conscience.test.ts` pin the key set, the
+ * value passthrough, and the 500-char reason truncation so a future
+ * refactor can't drift away from the wire shape relations.ts depends on.
+ */
+export interface ContradictionDetectedContext {
+  contradicts_id: string;
+  confidence:     number;
+  reason:         string;
+  // Index signature so the payload is assignable to AgentEventBus.emit's
+  // `Record<string, unknown>` parameter without an explicit cast at the
+  // emission site. The shape is still pinned by the explicit keys above
+  // and by the unit tests in __tests__/conscience.test.ts.
+  [key: string]: unknown;
+}
+
+export function buildContradictionDetectedContext(
+  contradictsId: string,
+  confidence:    number,
+  reason:        string,
+): ContradictionDetectedContext {
+  return {
+    contradicts_id: contradictsId,
+    confidence,
+    reason: reason.slice(0, 500),
+  };
+}
+
 export interface ConscienceOptions {
   agentId?:       string;          // openclaw agent id, default "main"
   topK?:          number;          // neighbours to compare against
@@ -131,20 +178,19 @@ export class ConscienceAgent implements Agent {
     //    event can correlate back. `conscience_warning` is the human-readable
     //    surface; `contradiction_detected` is the observable counted by the
     //    frustration term of compute_affect() — see docs/affect-observables.md.
-    const reason = (verdict.reason ?? "").slice(0, 500);
     const traceId = randomUUID();
-    const payload = {
-      contradicts_id: verdict.contradicts_id,
-      confidence:     verdict.confidence,
-      reason,
-    };
+    const payload = buildContradictionDetectedContext(
+      verdict.contradicts_id,
+      verdict.confidence ?? 0,
+      verdict.reason ?? "",
+    );
     await bus.emit(mem.id, "conscience_warning",    this.name, payload, traceId);
     await bus.emit(mem.id, "contradiction_detected", this.name, payload, traceId);
     const { error: chainErr } = await this.db.rpc("chain_memories", {
       p_a_id:   mem.id,
       p_b_id:   verdict.contradicts_id,
       p_type:   "contradicts",
-      p_reason: reason,
+      p_reason: payload.reason,
       p_weight: verdict.confidence ?? 0.7,
     });
     if (chainErr) {
