@@ -1126,11 +1126,13 @@ async function main() {
     );
   }
 
-  // Agent event-bus (Migration 047) — opt-in via OPENCLAW_AGENT_BUS=1
-  // so existing instances keep their previous behaviour. When enabled,
-  // the CoactivationAgent subscribes to `used_in_response` events and
-  // Hebbian-links memories that appeared in the same trace.
-  if ((process.env.OPENCLAW_AGENT_BUS ?? "0") === "1") {
+  // Agent event-bus (Migration 047) — ON by default. Set
+  // OPENCLAW_AGENT_BUS=0 to disable (e.g. when running multiple parallel
+  // MCP sessions and you want only one to drive Hebbian updates, to
+  // avoid double-counting). The CoactivationAgent subscribes to
+  // `used_in_response` events and Hebbian-links memories that appeared
+  // in the same trace. Without it the substrate stops learning.
+  if ((process.env.OPENCLAW_AGENT_BUS ?? "1") !== "0") {
     try {
       const bus = new AgentEventBus(SUPABASE_URL, SUPABASE_KEY, {
         tickMs:    parseInt(process.env.OPENCLAW_AGENT_BUS_TICK_MS ?? "5000", 10),
