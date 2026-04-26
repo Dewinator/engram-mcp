@@ -54,12 +54,12 @@
   }
   *,*::before,*::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
-  body { min-height: 100vh; display: grid; grid-template-columns: 240px 1fr; }
+  body { min-height: 100vh; display: grid; grid-template-columns: 200px 1fr; }
   a { color: var(--accent); text-decoration: none; }
 
   .sidebar {
     background: var(--bg-elev); border-right: 1px solid var(--border);
-    padding: 22px 14px 20px; display: flex; flex-direction: column; gap: 18px;
+    padding: 18px 12px 16px; display: flex; flex-direction: column; gap: 12px;
     position: sticky; top: 0; align-self: start; height: 100vh;
     overflow-y: auto; z-index: 30;
   }
@@ -76,13 +76,10 @@
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 24px; gap: 16px; flex-wrap: wrap;
   }
-  .brand { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; margin-bottom: 4px; }
-  .brand .logo { width: auto; max-width: 120px; height: auto; display: block; }
-  .brand .logo-mark { width: 56px; height: 56px; display: block; }
-  .brand h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;
-              background: linear-gradient(90deg, var(--accent-2), var(--accent), var(--accent-3));
-              -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .brand .sub { color: var(--text-dim); font-size: 13px; }
+  .brand { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; margin: 0 0 14px; }
+  .brand .logo { width: auto; max-width: 96px; height: auto; display: block; }
+  .brand h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+  .brand .sub { display: none; }  /* logo image already carries the "your AI" wordmark */
   .brand .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   .status-line { color: var(--text-dim); font-size: 13px; flex: 1; min-width: 0; }
   .controls { display: flex; align-items: center; gap: 8px; }
@@ -175,15 +172,15 @@
   footer code { font-family: var(--mono); }
 
   /* sidebar nav */
-  .tabs { display: flex; flex-direction: column; gap: 2px; }
+  .tabs { display: flex; flex-direction: column; gap: 0; }
   .tab {
     background: transparent; border: 0; color: var(--text-dim);
-    padding: 9px 12px; font: inherit; font-size: 13px; cursor: pointer;
+    padding: 6px 10px; font: inherit; font-size: 13px; line-height: 1.3; cursor: pointer;
     text-align: left; border-radius: var(--radius-sm);
-    transition: background .15s, color .15s;
+    transition: background .12s, color .12s;
   }
   .tab:hover { background: var(--bg-elev-2); color: var(--text); }
-  .tab.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+  .tab.active { background: var(--bg-elev-2); color: var(--text); font-weight: 500; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
@@ -221,9 +218,9 @@
 
   /* narrate-self prose card */
   .narrate-card {
-    background: linear-gradient(180deg, var(--bg-elev) 0%, var(--bg-elev-2) 100%);
+    background: var(--bg-elev);
     border: 1px solid var(--border);
-    border-left: 4px solid var(--accent-2);
+    border-left: 3px solid var(--accent-2);
     border-radius: var(--radius);
     padding: 28px 32px;
     margin-bottom: 16px;
@@ -497,23 +494,19 @@
 
   /* === beginner-friendly UI primitives (Reed 2026-04-26) ============== */
 
-  /* Plain-language intro at the top of each panel. Picks up the logo's
-     violet→cyan gradient so the brand identity is felt across the UI. */
+  /* Plain-language intro at the top of each panel. Flat, restrained: a thin
+     accent line on the left, no gradient fills, no fancy text effects. */
   .panel-intro {
     margin: -4px 0 18px;
-    padding: 14px 16px 14px 18px;
-    background: linear-gradient(135deg, rgba(187,154,247,0.07), rgba(125,207,255,0.05) 60%, transparent);
-    border-left: 3px solid;
-    border-image: linear-gradient(180deg, var(--accent-2), var(--accent), var(--accent-3)) 1;
+    padding: 12px 16px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent);
     border-radius: var(--radius-sm);
-    font-size: 14px; line-height: 1.55; color: var(--text);
+    font-size: 13px; line-height: 1.55; color: var(--text-dim);
   }
-  .panel-intro b {
-    background: linear-gradient(90deg, var(--accent-2), var(--accent));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    font-weight: 600;
-  }
-  .panel-intro .sub { display: block; margin-top: 6px; font-size: 12px; color: var(--text-dim); }
+  .panel-intro b { color: var(--text); font-weight: 600; }
+  .panel-intro .sub { display: block; margin-top: 6px; font-size: 12px; color: var(--text-faint); }
 
   /* "Was du hier siehst" — a labelled card section that appears under the
      panel-intro on tabs that have multiple cards. Uses caps + accent. */
@@ -554,69 +547,11 @@
   }
   .help:hover::after, .help:focus::after { opacity: 1; }
 
-  /* Semantic-coloured bar fill — adds intuitive green/orange/red to the
-     existing .bar-fill 0..1 component without changing its layout.
-     Calm/neutral bars carry the brand gradient (violet→cyan) so the
-     identity of the logo is felt across every chart and KPI. */
-  .bar-fill.good { background: linear-gradient(90deg, color-mix(in srgb, var(--good) 80%, var(--accent-3)), var(--good)); }
-  .bar-fill.warn { background: linear-gradient(90deg, var(--warn), color-mix(in srgb, var(--warn) 80%, #ff8a3a)); }
-  .bar-fill.bad  { background: linear-gradient(90deg, var(--bad), color-mix(in srgb, var(--bad) 80%, var(--accent-2))); }
-  .bar-fill.calm { background: linear-gradient(90deg, var(--accent-2), var(--accent), var(--accent-3)); }
-  .bar-fill { box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 20%, transparent); }
-  .bar-fill.bad { box-shadow: 0 0 8px color-mix(in srgb, var(--bad) 28%, transparent); }
-  .bar-fill.warn { box-shadow: 0 0 6px color-mix(in srgb, var(--warn) 22%, transparent); }
-  .bar-fill.good { box-shadow: 0 0 6px color-mix(in srgb, var(--good) 22%, transparent); }
-
-  /* Card polish — subtle gradient line under each h2 to carry the brand,
-     and a violet glow on hover to make the surface feel alive. */
-  .card h2 {
-    position: relative;
-    padding-bottom: 10px;
-  }
-  .card h2::after {
-    content: "";
-    position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
-    background: linear-gradient(90deg, var(--accent-2) 0%, var(--accent) 30%, transparent 70%);
-    border-radius: 1px; opacity: 0.6;
-  }
-  .card { transition: box-shadow 0.18s ease, border-color 0.18s ease; }
-  .card:hover {
-    border-color: color-mix(in srgb, var(--accent-2) 35%, var(--border));
-    box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent-2) 20%, transparent);
-  }
-
-  /* KPI card accent — small coloured dot on the corner picks up the brand. */
-  .kpi.card { position: relative; overflow: hidden; }
-  .kpi.card::before {
-    content: "";
-    position: absolute; top: 0; right: 0; width: 60px; height: 60px;
-    background: radial-gradient(circle at top right, color-mix(in srgb, var(--accent-2) 22%, transparent), transparent 70%);
-    pointer-events: none;
-  }
-
-  /* Active tab in sidebar — gradient accent stripe on the left edge so the
-     selected section has more weight than just a darker background. */
-  .tab.active {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 60%);
-    color: var(--text);
-    position: relative;
-  }
-  .tab.active::before {
-    content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px;
-    border-radius: 2px;
-    background: linear-gradient(180deg, var(--accent-2), var(--accent), var(--accent-3));
-  }
-
-  /* Mood disc gradient ring — replaces the flat outline so the centerpiece
-     of the soul tab visually pulses in the brand colours. */
-  .mood-disc {
-    position: relative;
-  }
-  .mood-disc::after {
-    content: ""; position: absolute; inset: -3px; border-radius: 50%;
-    background: conic-gradient(from 220deg, var(--accent-2), var(--accent-3), var(--accent), var(--accent-2));
-    z-index: -1; opacity: 0.55; filter: blur(2px);
-  }
+  /* Semantic-coloured bar fill — flat, no gradient, no glow. */
+  .bar-fill.good { background: var(--good); }
+  .bar-fill.warn { background: var(--warn); }
+  .bar-fill.bad  { background: var(--bad); }
+  .bar-fill.calm { background: var(--accent); }
 
   /* "Tech-Info" foldable — tucks IPs, ports, migration numbers, raw event
      names, etc. away from the primary surface. The user opens it only if
