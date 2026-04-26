@@ -184,6 +184,116 @@
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
+  /* sidebar app-nav (top-level: cortex / chat / agents / tasks / providers / settings) */
+  .app-nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 0; color: var(--text-dim);
+    padding: 9px 10px; font: inherit; font-size: 13px; line-height: 1.3; cursor: pointer;
+    text-align: left; border-radius: var(--radius-sm);
+    transition: background .12s, color .12s;
+  }
+  .nav-item:hover { background: var(--bg-elev-2); color: var(--text); }
+  .nav-item.active { background: var(--bg-elev-2); color: var(--text); font-weight: 600; }
+  .nav-item .badge {
+    margin-left: auto; font-size: 10px; padding: 2px 7px;
+    border-radius: 8px; background: var(--bg, var(--bg-elev-2));
+    color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px;
+    border: 1px solid var(--border);
+  }
+
+  /* outer nav-panel switching */
+  .nav-panel { display: none; }
+  .nav-panel.active { display: block; }
+
+  /* cortex two-level inner navigation */
+  .cortex-groups {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    padding-bottom: 8px; margin: 0 0 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cortex-group-btn {
+    background: transparent; border: 1px solid transparent; color: var(--text-dim);
+    padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .cortex-group-btn:hover { background: var(--bg-elev-2); color: var(--text); }
+  .cortex-group-btn.active {
+    background: var(--bg-elev-2); color: var(--text); font-weight: 600;
+    border-color: var(--accent, var(--border));
+  }
+  .cortex-subtabs {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    margin: 0 0 18px;
+  }
+  .cortex-subtabs .tab { padding: 6px 12px; font-size: 12.5px; }
+  .cortex-subtabs .tab[hidden] { display: none; }
+
+  /* agent registry */
+  .agents-grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  .agent-card {
+    padding: 14px 16px; background: var(--bg-elev-2);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .agent-card.live { border-left: 3px solid var(--good); }
+  .agent-card.dead { border-left: 3px solid var(--text-faint); opacity: 0.78; }
+  .agent-card .head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .agent-card .name { font-weight: 600; font-size: 14px; }
+  .agent-card .gen { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .agent-card .status-pill {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .agent-card .status-pill.live { background: var(--good); color: #000; }
+  .agent-card .status-pill.dead { background: var(--bg); color: var(--text-faint); border: 1px solid var(--border); }
+  .agent-card .meta-row {
+    display: grid; grid-template-columns: 80px 1fr; gap: 4px 10px;
+    font-size: 12px; color: var(--text-dim);
+  }
+  .agent-card .meta-row .k { color: var(--text-faint); }
+  .agent-card .meta-row .v { color: var(--text); font-family: var(--mono); font-size: 11.5px; word-break: break-word; }
+  .agent-card .caps { display: flex; flex-wrap: wrap; gap: 4px; }
+  .agent-card .cap-chip {
+    font-size: 10px; padding: 2px 7px; border-radius: 8px;
+    background: var(--bg); color: var(--text-dim);
+    border: 1px solid var(--border); font-family: var(--mono);
+  }
+  .agent-card .fitness {
+    display: flex; align-items: center; gap: 8px; font-size: 11px;
+  }
+  .agent-card .fitness .bar {
+    flex: 1; height: 4px; background: var(--bg); border-radius: 2px; overflow: hidden;
+  }
+  .agent-card .fitness .bar > span {
+    display: block; height: 100%; background: var(--accent); border-radius: 2px;
+  }
+  .agents-empty {
+    padding: 32px 16px; text-align: center; color: var(--text-dim);
+    border: 1px dashed var(--border); border-radius: var(--radius);
+  }
+
+  /* coming-soon stub panel for not-yet-implemented top-level menu items */
+  .stub-panel {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 50vh; text-align: center; gap: 14px; color: var(--text-dim);
+    padding: 32px 16px;
+  }
+  .stub-panel h2 { margin: 0; color: var(--text); font-weight: 600; font-size: 22px; }
+  .stub-panel .stub-desc { max-width: 520px; font-size: 14px; line-height: 1.55; }
+  .stub-panel .stub-tag {
+    font-size: 11px; padding: 4px 10px; border-radius: 12px;
+    background: var(--bg-elev-2); color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.6px;
+  }
+  .stub-panel .btn { margin-top: 4px; }
+
   /* soul-tab specific */
   .lesson-list { display: flex; flex-direction: column; gap: 10px; }
   .lesson-item {
@@ -616,29 +726,17 @@
       <h1 class="visually-hidden">mycelium</h1>
       <div class="sub" data-i18n="brand.subtitle">your AI</div>
     </div>
-    <nav class="tabs">
-      <button class="tab active" data-tab="memory" data-i18n="nav.memory">gedächtnis</button>
-      <button class="tab" data-tab="projects" data-i18n="nav.projects">projekte</button>
-      <button class="tab" data-tab="soul" data-i18n="nav.soul">seele</button>
-      <button class="tab" data-tab="regulator" data-i18n="nav.regulator">regulator</button>
-      <button class="tab" data-tab="learning" data-i18n="nav.learning">lernen</button>
-      <button class="tab" data-tab="motivation" data-i18n="nav.motivation">motivation</button>
-      <button class="tab" data-tab="identity" data-i18n="nav.identity">identität</button>
-      <button class="tab" data-tab="sleep" data-i18n="nav.sleep">schlaf</button>
-      <!-- DEFERRED 2026-04-26 — re-enable when neurochemistry core is stable
-      <button class="tab" data-tab="population" data-i18n="nav.population">population</button>
-      <button class="tab" data-tab="tinder" data-i18n="nav.tinder">tinder</button>
-      -->
-      <button class="tab" data-tab="guard" data-i18n="nav.guard">guard</button>
-      <button class="tab" data-tab="emergence" data-i18n="nav.emergence">emergenz</button>
-      <!-- DEFERRED 2026-04-26
-      <button class="tab" data-tab="federation" data-i18n="nav.federation">föderation</button>
-      -->
-      <button class="tab" data-tab="neurochemistry" data-i18n="nav.neurochemistry">neurochemie</button>
-      <button class="tab" data-tab="synapses" data-i18n="nav.synapses">synapsen</button>
-      <!-- DEFERRED 2026-04-26
-      <button class="tab" data-tab="teacher" data-i18n="nav.teacher">teacher</button>
-      -->
+    <nav class="app-nav">
+      <button class="nav-item active" data-nav="cortex">
+        <span data-i18n="nav.cortex">cortex</span>
+      </button>
+      <button class="nav-item" data-nav="agents">
+        <span data-i18n="nav.agents">agenten</span>
+        <span class="badge" data-i18n="nav.badge.soon">bald</span>
+      </button>
+      <button class="nav-item" data-nav="settings">
+        <span data-i18n="nav.settings">einstellungen</span>
+      </button>
     </nav>
   </aside>
   <div class="backdrop" id="sidebar-backdrop"></div>
@@ -656,6 +754,40 @@
   </header>
 
   <div id="error-box"></div>
+
+  <div class="nav-panel active" id="nav-panel-cortex">
+  <nav class="cortex-groups" aria-label="cortex group">
+    <button class="cortex-group-btn active" data-group="erinnerung" data-i18n="cortex.group.memory">erinnerung</button>
+    <button class="cortex-group-btn" data-group="innenleben" data-i18n="cortex.group.inner">innenleben</button>
+    <button class="cortex-group-btn" data-group="lernen" data-i18n="cortex.group.learning">lernen</button>
+    <button class="cortex-group-btn" data-group="schwarm" data-i18n="cortex.group.swarm">schwarm</button>
+  </nav>
+  <nav class="cortex-subtabs" aria-label="cortex sub-tab">
+    <!-- Erinnerung -->
+    <button class="tab active" data-tab="memory" data-group="erinnerung" data-i18n="nav.memory">gedächtnis</button>
+    <button class="tab" data-tab="synapses" data-group="erinnerung" data-i18n="nav.synapses">synapsen</button>
+    <button class="tab" data-tab="projects" data-group="erinnerung" data-i18n="nav.projects">projekte</button>
+    <button class="tab" data-tab="regulator" data-group="erinnerung" data-i18n="nav.regulator">regulator</button>
+    <!-- Innenleben -->
+    <button class="tab" data-tab="soul" data-group="innenleben" data-i18n="nav.soul">seele</button>
+    <button class="tab" data-tab="neurochemistry" data-group="innenleben" data-i18n="nav.neurochemistry">neurochemie</button>
+    <button class="tab" data-tab="motivation" data-group="innenleben" data-i18n="nav.motivation">motivation</button>
+    <button class="tab" data-tab="identity" data-group="innenleben" data-i18n="nav.identity">identität</button>
+    <!-- Lernen -->
+    <button class="tab" data-tab="learning" data-group="lernen" data-i18n="nav.learning">lernen</button>
+    <button class="tab" data-tab="sleep" data-group="lernen" data-i18n="nav.sleep">schlaf</button>
+    <button class="tab" data-tab="emergence" data-group="lernen" data-i18n="nav.emergence">emergenz</button>
+    <!-- DEFERRED 2026-04-26 — re-enable with feature flag
+    <button class="tab" data-tab="teacher" data-group="lernen" data-i18n="nav.teacher">teacher</button>
+    -->
+    <!-- Schwarm -->
+    <button class="tab" data-tab="guard" data-group="schwarm" data-i18n="nav.guard">guard</button>
+    <!-- DEFERRED 2026-04-26 — re-enable with feature flag
+    <button class="tab" data-tab="population" data-group="schwarm" data-i18n="nav.population">population</button>
+    <button class="tab" data-tab="tinder" data-group="schwarm" data-i18n="nav.tinder">tinder</button>
+    <button class="tab" data-tab="federation" data-group="schwarm" data-i18n="nav.federation">föderation</button>
+    -->
+  </nav>
 
   <div class="tab-panel active" id="panel-memory">
   <div class="panel-intro" data-i18n-html="intro.memory"></div>
@@ -1330,6 +1462,30 @@
     </section>
   </div><!-- /panel-teacher -->
   </template>
+  </div><!-- /nav-panel-cortex -->
+
+  <div class="nav-panel" id="nav-panel-agents">
+    <div class="panel-intro" data-i18n-html="intro.agents"><b>Agenten</b> sind die Körper, die mycelium als gemeinsames Gehirn nutzen. Hier siehst du alle Clients, die sich gerade registriert haben — Heartbeat, Status, Genome, Fähigkeiten. Read-Only — die Steuerung jedes Agenten passiert im jeweiligen Client (Claude Code, Codex, openClaw, …).<span class="sub">Ein Agent gilt als <b>live</b>, wenn der letzte Heartbeat weniger als 120 Sekunden her ist. „offline" heißt nicht weg, sondern ungebunden — sein Wissen bleibt im Gehirn.</span></div>
+
+    <section class="grid grid-kpi" id="agents-kpis"></section>
+
+    <section class="card" style="margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <h2 style="margin:0" data-i18n="agents.heading">verbundene agenten</h2>
+        <div class="sub" id="agents-status" data-i18n="agents.loading">lade…</div>
+      </div>
+      <div id="agents-grid" class="agents-grid"></div>
+    </section>
+  </div>
+
+  <div class="nav-panel" id="nav-panel-settings">
+    <div class="stub-panel">
+      <div class="stub-tag" data-i18n="stub.phase.alpha">alpha</div>
+      <h2 data-i18n="stub.settings.title">einstellungen</h2>
+      <p class="stub-desc" data-i18n="stub.settings.desc">die bisherige setup-seite zieht hierhin um.</p>
+      <a href="/setup" class="btn" data-i18n="stub.settings.link">aktuelle setup-seite öffnen</a>
+    </div>
+  </div>
 
   <!-- Teacher Escalation Modal -->
   <div id="tch-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:40;align-items:center;justify-content:center">
@@ -3841,6 +3997,137 @@ document.querySelectorAll(".tab").forEach(btn => {
     window.scrollTo({ top: 0, behavior: "instant" });
   });
 });
+
+// outer app-nav switching (cortex / agents / settings)
+document.querySelectorAll(".nav-item").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const name = btn.dataset.nav;
+    document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".nav-panel").forEach(p => p.classList.toggle("active", p.id === "nav-panel-" + name));
+    if (name === "agents") loadAgentRegistry();
+    else stopAgentRegistryPolling();
+    closeSidebar();
+    window.scrollTo({ top: 0, behavior: "instant" });
+  });
+});
+
+// --- agents registry (live mirror of connected mycelium clients) -------------
+// NOTE: the deferred pairing/tinder code already defines `renderAgents(agentsData, matchesData)`.
+// We use a distinct name (`renderAgentRegistry`) to avoid hoisting collisions.
+let _agentsPoll = null;
+function stopAgentRegistryPolling() {
+  if (_agentsPoll) { clearInterval(_agentsPoll); _agentsPoll = null; }
+}
+async function loadAgentRegistry() {
+  await refreshAgentRegistry();
+  stopAgentRegistryPolling();
+  _agentsPoll = setInterval(refreshAgentRegistry, 15000);
+}
+async function refreshAgentRegistry() {
+  const status = document.getElementById("agents-status");
+  try {
+    const r = await fetch(`${ENDPOINT}/rpc/agents_live`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const rows = await r.json();
+    renderAgentRegistry(Array.isArray(rows) ? rows : []);
+    if (status) status.textContent = `${tt("agents.updated")} ${new Date().toLocaleTimeString("de-DE")}`;
+  } catch (e) {
+    if (status) status.textContent = `${tt("agents.error")}: ${e.message}`;
+  }
+}
+function relativeTime(iso) {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0) return tt("rel.future");
+  const s = Math.round(ms / 1000);
+  if (s < 60) return tt("rel.seconds", { n: s });
+  const m = Math.round(s / 60);
+  if (m < 60) return tt("rel.minutes", { n: m });
+  const h = Math.round(m / 60);
+  if (h < 48) return tt("rel.hours", { n: h });
+  const d = Math.round(h / 24);
+  return tt("rel.days", { n: d });
+}
+function renderAgentRegistry(rows) {
+  const grid = document.getElementById("agents-grid");
+  const kpis = document.getElementById("agents-kpis");
+  if (!grid) return;
+  if (!Array.isArray(rows)) rows = [];
+  const live = rows.filter(a => a.live).length;
+  const total = rows.length;
+  const hosts = new Set(rows.map(a => a.host).filter(Boolean)).size;
+  const genomes = new Set(rows.map(a => a.genome_label).filter(Boolean)).size;
+  if (kpis) {
+    kpis.innerHTML = [
+      kpiCard(tt("agents.kpi.live"),    fmt.format(live),    tt("agents.kpi.live.hint")),
+      kpiCard(tt("agents.kpi.total"),   fmt.format(total),   tt("agents.kpi.total.hint")),
+      kpiCard(tt("agents.kpi.hosts"),   fmt.format(hosts),   tt("agents.kpi.hosts.hint")),
+      kpiCard(tt("agents.kpi.genomes"), fmt.format(genomes), tt("agents.kpi.genomes.hint")),
+    ].join("");
+  }
+  if (!rows.length) {
+    grid.innerHTML = `<div class="agents-empty">${tt("agents.empty")}</div>`;
+    return;
+  }
+  grid.innerHTML = rows.map(renderAgentCard).join("");
+}
+function renderAgentCard(a) {
+  const liveCls = a.live ? "live" : "dead";
+  const pillTxt = a.live ? tt("agents.pill.live") : tt("agents.pill.offline");
+  const caps = (a.capabilities || []).map(c => `<span class="cap-chip">${escapeHtml(c)}</span>`).join("");
+  const fitness = a.latest_fitness != null ? Math.max(0, Math.min(1, Number(a.latest_fitness))) : null;
+  const fitnessRow = fitness != null ? `
+    <div class="fitness" title="${tt("agents.fitness.help")}">
+      <span class="k">${tt("agents.fit")}</span>
+      <div class="bar"><span style="width:${(fitness * 100).toFixed(0)}%"></span></div>
+      <span class="v">${fmt2.format(fitness)}</span>
+    </div>` : "";
+  return `
+    <div class="agent-card ${liveCls}" data-label="${escapeHtml(a.label)}">
+      <div class="head">
+        <div>
+          <div class="name">${escapeHtml(a.label)}</div>
+          <div class="gen">${escapeHtml(a.genome_label || "?")} · gen ${escapeHtml(String(a.generation ?? "?"))}</div>
+        </div>
+        <span class="status-pill ${liveCls}">${pillTxt}</span>
+      </div>
+      <div class="meta-row">
+        <span class="k">${tt("agents.host")}</span><span class="v">${escapeHtml(a.host || "—")}</span>
+        <span class="k">${tt("agents.heartbeat")}</span><span class="v">${escapeHtml(relativeTime(a.last_heartbeat))}</span>
+        <span class="k">${tt("agents.version")}</span><span class="v">${escapeHtml(a.version || "—")}</span>
+        <span class="k">${tt("agents.workspace")}</span><span class="v">${escapeHtml(a.workspace_path || "—")}</span>
+      </div>
+      ${caps ? `<div class="caps">${caps}</div>` : ""}
+      ${fitnessRow}
+    </div>`;
+}
+
+// cortex group switcher (innenleben / erinnerung / lernen / schwarm) — shows only matching sub-tabs
+function setCortexGroup(group) {
+  document.querySelectorAll(".cortex-group-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.group === group)
+  );
+  const subtabs = document.querySelectorAll(".cortex-subtabs .tab");
+  subtabs.forEach(t => { t.hidden = t.dataset.group !== group; });
+  // if currently active sub-tab is in another group, switch to first visible sub-tab of new group
+  const activeSub = document.querySelector(".cortex-subtabs .tab.active");
+  if (!activeSub || activeSub.dataset.group !== group) {
+    const firstVisible = Array.from(subtabs).find(t => t.dataset.group === group && !t.hidden);
+    firstVisible?.click();
+  }
+}
+document.querySelectorAll(".cortex-group-btn").forEach(btn => {
+  btn.addEventListener("click", () => setCortexGroup(btn.dataset.group));
+});
+// initial group activation: pick the group of the currently active sub-tab
+{
+  const _initActive = document.querySelector(".cortex-subtabs .tab.active");
+  if (_initActive) setCortexGroup(_initActive.dataset.group);
+}
 
 // --- teacher (claude-code-sessions Plugin) -------------------------------------
 let TCH_POLL_HANDLE = null;
