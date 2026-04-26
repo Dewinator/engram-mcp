@@ -143,7 +143,10 @@ async function runSws() {
 //   promotion_candidates → promote_lesson_to_trait fuer reife Lessons
 //   unloadQwen           — Ollama keep_alive=0: Modell aus RAM fuer andere Tasks
 // ---------------------------------------------------------------------------
-const REM_MIN_CONFIDENCE = Number(process.env.REM_MIN_CONFIDENCE || 0.5);
+const REM_MIN_CONFIDENCE     = Number(process.env.REM_MIN_CONFIDENCE     || 0.5);
+const REM_CLUSTER_SIMILARITY = Number(process.env.REM_CLUSTER_SIMILARITY || 0.80);
+const REM_CLUSTER_MIN_SIZE   = Number(process.env.REM_CLUSTER_MIN_SIZE   || 2);
+const REM_CLUSTER_WINDOW_DAYS = Number(process.env.REM_CLUSTER_WINDOW_DAYS || 30);
 
 async function runRem() {
   const out = {
@@ -164,11 +167,38 @@ async function runRem() {
   };
 
   let clusters = [];
+  out.cluster_params = {
+    similarity: REM_CLUSTER_SIMILARITY,
+    min_size:   REM_CLUSTER_MIN_SIZE,
+    window_days: REM_CLUSTER_WINDOW_DAYS,
+  };
   try {
-    clusters = await expSvc.findClusters(0.85, 2, 30);
+    clusters = await expSvc.findClusters(
+      REM_CLUSTER_SIMILARITY,
+      REM_CLUSTER_MIN_SIZE,
+      REM_CLUSTER_WINDOW_DAYS,
+    );
     out.clusters_found = clusters.length;
     out.cluster_sizes = clusters.slice(0, 10).map((c) => c.member_count ?? (c.member_ids?.length ?? 0));
   } catch (e) { out.errors.push({ step: "find_clusters", msg: String(e?.message ?? e) }); }
+
+  // Distinguish "no material" from "material but threshold too tight".
+  // When zero clusters were produced, count unreflected experiences in the
+  // window so the empty REM cycle is interpretable from the log alone.
+  if (out.clusters_found === 0 && out.errors.every((e) => e.step !== "find_clusters")) {
+    try {
+      const cutoffISO = new Date(Date.now() - REM_CLUSTER_WINDOW_DAYS * 86400_000).toISOString();
+      const r = await fetch(
+        `${SUPABASE_URL}/experiences?select=id&reflected=eq.false&embedding=not.is.null&created_at=gte.${cutoffISO}`,
+        { method: "HEAD", headers: { ...REST_HEADERS, Prefer: "count=exact", Range: "0-0" } },
+      );
+      const cr = r.headers.get("content-range");
+      const total = cr && cr.includes("/") ? Number(cr.split("/")[1]) : null;
+      out.unreflected_in_window = Number.isFinite(total) ? total : null;
+    } catch (e) {
+      out.errors.push({ step: "count_unreflected", msg: String(e?.message ?? e) });
+    }
+  }
 
   // Cluster → Qwen-Synthese → Lesson (entweder neu oder bestehende reinforced)
   for (const cluster of clusters) {
