@@ -1048,7 +1048,7 @@ async function main() {
   }
 
   // Register in the agents-Tabelle. Non-fatal if it fails — memory operations
-  // still work. Eager path runs only when OPENCLAW_getAgentLabel() is set
+  // still work. Eager path runs only when MYCELIUM_AGENT_LABEL is set
   // (backend/server processes). For MCP clients we wait for the initialize
   // handshake — see server.server.oninitialized below.
   if (registryService) {

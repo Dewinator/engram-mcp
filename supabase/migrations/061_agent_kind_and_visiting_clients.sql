@@ -5,7 +5,7 @@
 -- Until now the `agents` table held one row per *server process* (label='main').
 -- Every connected MCP client (Claude Code, openClaw, Cursor, Codex, …) was
 -- invisible — they all shared the same row because the label was hardcoded
--- via OPENCLAW_AGENT_LABEL.
+-- via the agent-label env var.
 --
 -- This migration:
 --   1. Adds `agents.kind` ('server' | 'client-session') so the dashboard can
