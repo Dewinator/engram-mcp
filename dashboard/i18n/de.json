@@ -167,6 +167,9 @@
   "neuro.col.conflicts.help": "Anzahl der zu diesem Zeitpunkt offenen Widersprüche im Gedächtnis.",
   "neuro.history.empty": "noch keine Ereignisse aufgezeichnet",
 
+  "toast.copied": "Prompt für '{slug}' wurde in die Zwischenablage kopiert",
+  "toast.copy_failed": "Kopieren fehlgeschlagen — bitte manuell aus der Konsole übernehmen",
+
   "event.task_complete": "Aufgabe ok",
   "event.task_failed": "Aufgabe fehlgeschlagen",
   "event.novel_stimulus": "Neues bemerkt",

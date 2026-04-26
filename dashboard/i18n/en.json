@@ -167,6 +167,9 @@
   "neuro.col.conflicts.help": "Number of open contradictions in memory at that time.",
   "neuro.history.empty": "no events recorded yet",
 
+  "toast.copied": "Prompt for '{slug}' copied to clipboard",
+  "toast.copy_failed": "Copy failed — please grab it manually from the console",
+
   "event.task_complete": "task ok",
   "event.task_failed": "task failed",
   "event.novel_stimulus": "noticed something new",

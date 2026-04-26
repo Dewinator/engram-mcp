@@ -6,6 +6,12 @@
 <title>mycelium — dashboard</title>
 <link rel="icon" type="image/png" href="/assets/logo.png" />
 <link rel="apple-touch-icon" href="/assets/logo.png" />
+<script>
+  // i18n synchronisation handle. Resolved by the i18n module after dictionaries
+  // have loaded; legacy non-module script awaits this before its first render
+  // so tt() never returns raw keys on the initial paint.
+  window.myceliumI18nReady = new Promise((resolve) => { window.__myceliumI18nResolve = resolve; });
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root {
@@ -549,11 +555,68 @@
   .help:hover::after, .help:focus::after { opacity: 1; }
 
   /* Semantic-coloured bar fill — adds intuitive green/orange/red to the
-     existing .bar-fill 0..1 component without changing its layout. */
-  .bar-fill.good { background: var(--good); }
-  .bar-fill.warn { background: var(--warn); }
-  .bar-fill.bad  { background: var(--bad); }
-  .bar-fill.calm { background: var(--accent); } /* neutral / informational */
+     existing .bar-fill 0..1 component without changing its layout.
+     Calm/neutral bars carry the brand gradient (violet→cyan) so the
+     identity of the logo is felt across every chart and KPI. */
+  .bar-fill.good { background: linear-gradient(90deg, color-mix(in srgb, var(--good) 80%, var(--accent-3)), var(--good)); }
+  .bar-fill.warn { background: linear-gradient(90deg, var(--warn), color-mix(in srgb, var(--warn) 80%, #ff8a3a)); }
+  .bar-fill.bad  { background: linear-gradient(90deg, var(--bad), color-mix(in srgb, var(--bad) 80%, var(--accent-2))); }
+  .bar-fill.calm { background: linear-gradient(90deg, var(--accent-2), var(--accent), var(--accent-3)); }
+  .bar-fill { box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 20%, transparent); }
+  .bar-fill.bad { box-shadow: 0 0 8px color-mix(in srgb, var(--bad) 28%, transparent); }
+  .bar-fill.warn { box-shadow: 0 0 6px color-mix(in srgb, var(--warn) 22%, transparent); }
+  .bar-fill.good { box-shadow: 0 0 6px color-mix(in srgb, var(--good) 22%, transparent); }
+
+  /* Card polish — subtle gradient line under each h2 to carry the brand,
+     and a violet glow on hover to make the surface feel alive. */
+  .card h2 {
+    position: relative;
+    padding-bottom: 10px;
+  }
+  .card h2::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent-2) 0%, var(--accent) 30%, transparent 70%);
+    border-radius: 1px; opacity: 0.6;
+  }
+  .card { transition: box-shadow 0.18s ease, border-color 0.18s ease; }
+  .card:hover {
+    border-color: color-mix(in srgb, var(--accent-2) 35%, var(--border));
+    box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent-2) 20%, transparent);
+  }
+
+  /* KPI card accent — small coloured dot on the corner picks up the brand. */
+  .kpi.card { position: relative; overflow: hidden; }
+  .kpi.card::before {
+    content: "";
+    position: absolute; top: 0; right: 0; width: 60px; height: 60px;
+    background: radial-gradient(circle at top right, color-mix(in srgb, var(--accent-2) 22%, transparent), transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Active tab in sidebar — gradient accent stripe on the left edge so the
+     selected section has more weight than just a darker background. */
+  .tab.active {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 60%);
+    color: var(--text);
+    position: relative;
+  }
+  .tab.active::before {
+    content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--accent-2), var(--accent), var(--accent-3));
+  }
+
+  /* Mood disc gradient ring — replaces the flat outline so the centerpiece
+     of the soul tab visually pulses in the brand colours. */
+  .mood-disc {
+    position: relative;
+  }
+  .mood-disc::after {
+    content: ""; position: absolute; inset: -3px; border-radius: 50%;
+    background: conic-gradient(from 220deg, var(--accent-2), var(--accent-3), var(--accent), var(--accent-2));
+    z-index: -1; opacity: 0.55; filter: blur(2px);
+  }
 
   /* "Tech-Info" foldable — tucks IPs, ports, migration numbers, raw event
      names, etc. away from the primary surface. The user opens it only if
@@ -1394,6 +1457,9 @@
 
   window.myceliumI18n = { t, setLocale, getLocale, applyToDom, AVAILABLE_LOCALES, onLocaleChange };
 
+  // Tell the legacy script its initial load() may now run with translations.
+  if (typeof window.__myceliumI18nResolve === "function") window.__myceliumI18nResolve();
+
   // Trigger a full re-render of JS-built content when the locale changes.
   // Render functions (renderSoulKpis, renderAffect, …) read from
   // window.myceliumI18n.t at render time, so load() picks up the new
@@ -1401,12 +1467,6 @@
   onLocaleChange(() => {
     if (typeof window.load === "function") window.load();
   });
-
-  // The legacy script's initial load() runs synchronously before this
-  // module finishes (ES modules are deferred). At that moment
-  // window.myceliumI18n is still undefined, so tt() returned raw keys.
-  // Re-render once now that translations are available.
-  if (typeof window.load === "function") window.load();
 
   const updateToggle = () => {
     const btn = document.getElementById("lang-toggle");
@@ -3664,16 +3724,58 @@ async function renderProjectsGrid() {
   }
 }
 
-function copyProjectPrompt(slug) {
+// Universal copy-to-clipboard with graceful fallback for non-secure contexts
+// where navigator.clipboard is unavailable. Returns a Promise<boolean>.
+async function copyToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (_) {}
+  }
+  // execCommand fallback (deprecated but works on http://localhost without permissions).
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed"; ta.style.opacity = "0"; ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch (_) { return false; }
+}
+
+// Toast notification — shown briefly in the lower-right corner. Replaces the
+// silent status-line update (which the user couldn't see).
+function showToast(message, opts = {}) {
+  const tone = opts.tone || "ok"; // ok | bad
+  let host = document.getElementById("toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "toast-host";
+    host.style.cssText = "position:fixed;right:20px;bottom:20px;z-index:200;display:flex;flex-direction:column;gap:8px;pointer-events:none";
+    document.body.appendChild(host);
+  }
+  const el = document.createElement("div");
+  el.className = "toast";
+  const accent = tone === "bad" ? "var(--bad)" : "var(--accent-2)";
+  el.style.cssText = `pointer-events:auto;padding:12px 16px;background:var(--bg-elev);border:1px solid var(--border);border-left:3px solid ${accent};border-radius:var(--radius-sm);box-shadow:var(--shadow);color:var(--text);font-size:13px;max-width:360px;opacity:0;transform:translateX(20px);transition:opacity 0.18s ease,transform 0.18s ease`;
+  el.textContent = message;
+  host.appendChild(el);
+  requestAnimationFrame(() => { el.style.opacity = "1"; el.style.transform = "translateX(0)"; });
+  setTimeout(() => {
+    el.style.opacity = "0"; el.style.transform = "translateX(20px)";
+    setTimeout(() => el.remove(), 220);
+  }, opts.duration || 2600);
+}
+
+async function copyProjectPrompt(slug) {
   const prompt = `Arbeite am Projekt \`${slug}\`. Rufe zuerst project_brief("${slug}") auf, um den aktuellen Stand zu laden, dann set_active_project("${slug}") damit neue memories, experiences und intentionen auto-scoped werden. Fasse anschließend kurz zusammen, woran als nächstes gearbeitet werden sollte.`;
-  navigator.clipboard.writeText(prompt).then(() => {
-    const s = $("projects-status");
-    const prev = s.textContent;
-    s.textContent = "prompt für '" + slug + "' kopiert ✓";
-    setTimeout(() => { s.textContent = prev; }, 2400);
-  }).catch((err) => {
-    alert("copy fehlgeschlagen: " + err.message);
-  });
+  const ok = await copyToClipboard(prompt);
+  if (ok) {
+    showToast(tt("toast.copied", { slug }));
+  } else {
+    showToast(tt("toast.copy_failed"), { tone: "bad" });
+  }
 }
 
 async function showProjectDetail(slug) {
@@ -5903,8 +6005,16 @@ if (origTabSwitch) {
 
 initTheme();
 window.load = load;
-load();
-setInterval(load, REFRESH_MS);
+// Wait for the i18n module to finish loading dictionaries — otherwise the
+// initial render writes raw translation keys ("intro.memory", "kpi.soul.episodes")
+// into the DOM, which then visually leaks until the next refresh tick.
+(async () => {
+  if (window.myceliumI18nReady) {
+    try { await window.myceliumI18nReady; } catch (_) {}
+  }
+  load();
+  setInterval(load, REFRESH_MS);
+})();
 </script>
 </body>
 </html>
