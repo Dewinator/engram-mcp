@@ -32,7 +32,7 @@ Tag-Ko-Vorkommen-Analyse. Support + Lift pro Tag-Paar. Live-Test fand sofort ech
 ### Agent-Event-Bus (Phase 3 Foundation)
 - `src/agents/event-bus.ts` — 5s-Polling, Cursor pro Agent, Cold-Start-Lookback 10min, Cycle-Guard (`source.startsWith('agent:')`).
 - `src/agents/coactivation-agent.ts` — erster konkreter Subscriber. Hört auf `used_in_response`, batcht per trace_id mit 30s Debounce, ruft `coactivate_pair()` pairwise auf. Das ersetzt die bisherige "Client muss selbst ko-aktivieren"-Logik.
-- **Opt-in:** `OPENCLAW_AGENT_BUS=1` in der MCP-Config aktiviert den Bus. Default aus, damit Produktionsinstanz unverändert läuft bis das Feature explizit ausgerollt wird.
+- **Opt-in:** `MYCELIUM_AGENT_BUS=1` in der MCP-Config aktiviert den Bus. Default aus, damit Produktionsinstanz unverändert läuft bis das Feature explizit ausgerollt wird.
 
 ## Bewusst weggelassen
 
@@ -54,7 +54,7 @@ Die engram-Agents, die einen LLM-Call brauchen, sollten zum **OpenClaw-Gateway (
 
 ## Konkrete nächste Schritte
 
-1. **In Produktion aktivieren:** `OPENCLAW_AGENT_BUS=1` in der Repo-`.mcp.json` setzen. Server neu starten.
+1. **In Produktion aktivieren:** `MYCELIUM_AGENT_BUS=1` in der Repo-`.mcp.json` setzen. Server neu starten.
 2. **`used_in_response`-Events tatsächlich generieren.** Aktuell schreibt niemand diese Events. Entweder: (a) im digest-Tool bei `tools_used` die genannten Memory-IDs als Event loggen, oder (b) im recall-Tool einen optionalen `emit_used=true` Parameter.
 3. **Dashboard: Relations-Tab.** Synaptischer Graph aus `memory_relations` — Force-Physics-Canvas wie bei engram. Port 8787 um einen Tab erweitern.
 4. **ConscienceAgent als erstes Gateway-backed Agent.** Minimaler Prompt, Qwen mit 16k context.

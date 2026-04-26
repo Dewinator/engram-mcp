@@ -244,11 +244,12 @@ mycelium/
 ├── docker/                      # Supabase Docker setup
 ├── supabase/migrations/         # SQL migrations
 ├── mcp-server/                  # MCP server (TypeScript)
-│   ├── src/tools/               # remember, recall, digest, federation_*, ...
-│   ├── src/services/            # Supabase, embeddings, identity, federation, crypto
+│   ├── src/tools/               # remember, recall, digest, soul, neurochemistry, ...
+│   ├── src/services/            # Supabase, embeddings, identity, neurochemistry
 │   └── scripts/                 # e2e integration tests
-├── openclaw-config/             # example config for openClaw (one of many supported clients)
-└── scripts/                     # setup, import, dashboard server, provisioning
+├── scripts/                     # setup, import, dashboard server, provisioning
+│   └── deferred/openclaw/       # optional openClaw bridge (provisioner + config)
+└── archive/swarm-deferred       # git branch — full pairing/federation/population code
 ```
 
 ---
@@ -257,9 +258,7 @@ mycelium/
 
 Mycelium is designed to run **without a cloud LLM** on a Mac mini or laptop with 16 GB RAM. So that a 7–8B model (e.g. `qwen3:8b` via Ollama) doesn't choke on the tool schema load, the MCP server offers a focused profile:
 
-**`OPENCLAW_TOOL_PROFILE=core`** → only the 6 essential tools get registered (`prime_context`, `recall`, `remember`, `absorb`, `digest`, `update_affect`). The default `full` registers all 90 — fine for Claude / Codex, but ~18k tokens of pure schema is too much for an 8B model.
-
-(The env var name still says `OPENCLAW_` for historic reasons; it is honored regardless of which MCP client you use.)
+**`MYCELIUM_TOOL_PROFILE=core`** → only the 6 essential tools get registered (`prime_context`, `recall`, `remember`, `absorb`, `digest`, `update_affect`). The default `full` registers everything — fine for Claude / Codex, but ~18k tokens of pure schema is too much for an 8B model.
 
 In the MCP config (`.mcp.json` or your client's settings):
 
@@ -268,7 +267,7 @@ In the MCP config (`.mcp.json` or your client's settings):
   "command": "node",
   "args": ["/absolute/path/to/mycelium/mcp-server/dist/index.js"],
   "env": {
-    "OPENCLAW_TOOL_PROFILE": "core",
+    "MYCELIUM_TOOL_PROFILE": "core",
     "SUPABASE_URL": "http://localhost:54321",
     "SUPABASE_KEY": "...",
     "OLLAMA_URL": "http://localhost:11434",
@@ -304,9 +303,17 @@ The `core` filter is the **first step**. The full vision is a middleware that hi
 
 ---
 
-## Deferred experimental work
+## Roadmap
 
-Population/lineage UI, mutual-consent pairing of agents, mTLS federation across hosts, and the bot-to-bot peer network are all kept in the codebase but turned off in the current build. The current focus is the local memory + neurochemistry core; these layers come back once that core is stable.
+mycelium = **one simulated brain** (memory, neurochemistry, sleep, motivation, curiosity, forgetting, deepening, emergence). Multiple brains = multiple mycelium instances chosen by the user. Phases:
+
+1. Perfect the brain core.
+2. One-shot install with all dependencies.
+3. Polish the dashboard.
+4. Pairing.
+5. Swarm + inheritance + federation.
+
+The pairing/swarm/federation code is parked under `mcp-server/src/deferred/`, `supabase/migrations.deferred/`, and on the `archive/swarm-deferred` branch — revived once the core is stable.
 
 ---
 

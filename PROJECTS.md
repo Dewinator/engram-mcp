@@ -47,7 +47,7 @@ All tools are registered on the same `vector-memory` MCP server.
 | `list_projects(status?)` | List projects with activity counts. |
 | `get_project(slug)` | Fetch header info only. |
 | `project_brief(slug)` | **Single-call context priming**: header + counts + open intentions + recent experiences + key memories + top lessons. |
-| `set_active_project(slug, agent?)` | Set the active project for an agent (default agent = `OPENCLAW_AGENT_LABEL`, typically `main`). |
+| `set_active_project(slug, agent?)` | Set the active project for an agent (default agent = `MYCELIUM_AGENT_LABEL`, typically `main`). |
 | `update_project_status(slug, status)` | active / paused / completed / archived. |
 | `link_to_project(table, row_id, slug)` | Retroactively attach or detach a single memory / experience / intention / lesson row. Pass `slug=null` to detach. |
 

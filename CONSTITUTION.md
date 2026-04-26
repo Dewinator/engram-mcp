@@ -22,7 +22,7 @@ core cognition.
 Agents are genomic. They carry inheritance, they pair with mutual consent,
 they spawn children. The breeding machinery must remain intact and
 human-curated — pairing is a social act between users, never an autonomous
-AI event. Consent gates (`OPENCLAW_ALLOW_BREEDING`, mutual right-swipes)
+AI event. Consent gates (`MYCELIUM_ALLOW_BREEDING`, mutual right-swipes)
 are load-bearing, not cosmetic.
 
 ### 3. Swarm intelligence

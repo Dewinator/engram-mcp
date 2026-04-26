@@ -158,18 +158,6 @@ Persönlichkeit ist kein System-Prompt. Traits werden aus Episoden → Lessons �
 
 Jede Nacht um 03:00: Synaptic Downscaling, Deduplizierung, Pattern-basierte Relations-Erzeugung, Episode-Clustering, Lesson-Promotion, Self-Model-Update, sonntags ein Weekly-Fitness-Snapshot. Das System pflegt sich selbst.
 
-### Population — Stammbaum
-
-![Population-Tab: Generationen-Stammbaum mit Genome-Cards, Vererbungslinien, Cross-Host-Peer](docs/images/05-population.svg)
-
-Agenten sind nicht singulär. Jede Karte ist ein Genom, jede Linie eine Vererbung. Cross-Host-Kinder stammen aus Peer-Paarung über Federation.
-
-### Pairing — mutuelle Zustimmung als Gate
-
-![Pairing-Tab: Swipe-Card mit Bot-Profil, Consent-Status, Wright-F-Check](docs/images/06-tinder.svg)
-
-Bots paaren sich nicht selbst. Ein neuer Agent entsteht erst, wenn **beide Menschen** unabhängig zustimmen. Wright's F-Coefficient prüft automatisch auf Inzucht. Das Ethik-Gate ist kein technischer Schlagbaum — es ist eine bewusste menschliche Entscheidung.
-
 ---
 
 ## Features
@@ -241,10 +229,10 @@ mycelium/
 ├── docker/                      # Supabase Docker Setup
 ├── supabase/migrations/         # SQL-Migrationen
 ├── mcp-server/                  # MCP Server (TypeScript)
-│   ├── src/tools/               # remember, recall, digest, federation_*, ...
+│   ├── src/tools/               # remember, recall, digest, soul, neurochemistry, ...
 │   ├── src/services/            # Supabase, Embeddings, Identity, Federation, Crypto
 │   └── scripts/                 # E2E-Integrationstests
-├── openclaw-config/             # Beispielkonfiguration für openClaw (einer von vielen unterstützten Clients)
+├── scripts/deferred/openclaw/   # optionale openClaw-Bridge (Provisioner + Beispielkonfiguration)
 └── scripts/                     # Setup, Import, Dashboard-Server, Provisioning
 ```
 
@@ -254,9 +242,7 @@ mycelium/
 
 Mycelium ist darauf ausgelegt, **ohne Cloud-LLM** auf einem Mac mini oder Laptop mit 16 GB RAM zu laufen. Damit ein 7-8B-Modell (z.B. `qwen3:8b` via Ollama) nicht an der Tool-Schema-Last erstickt, bietet der MCP-Server ein fokussiertes Profil:
 
-**`OPENCLAW_TOOL_PROFILE=core`** → nur die 6 essentiellen Tools werden registriert (`prime_context`, `recall`, `remember`, `absorb`, `digest`, `update_affect`). Standard `full` registriert alle 90 — für Claude/Codex geeignet, aber ~18k Token reines Schema sind für ein 8B-Modell zu viel.
-
-(Die Env-Variable heißt aus historischen Gründen weiterhin `OPENCLAW_`; sie gilt unabhängig davon, welchen MCP-Client du nutzt.)
+**`MYCELIUM_TOOL_PROFILE=core`** → nur die 6 essentiellen Tools werden registriert (`prime_context`, `recall`, `remember`, `absorb`, `digest`, `update_affect`). Standard `full` registriert alle 90 — für Claude/Codex geeignet, aber ~18k Token reines Schema sind für ein 8B-Modell zu viel.
 
 In der MCP-Config (`.mcp.json` oder die Settings deines Clients):
 
@@ -265,7 +251,7 @@ In der MCP-Config (`.mcp.json` oder die Settings deines Clients):
   "command": "node",
   "args": ["/absolute/path/to/mycelium/mcp-server/dist/index.js"],
   "env": {
-    "OPENCLAW_TOOL_PROFILE": "core",
+    "MYCELIUM_TOOL_PROFILE": "core",
     "SUPABASE_URL": "http://localhost:54321",
     "SUPABASE_KEY": "...",
     "OLLAMA_URL": "http://localhost:11434",
@@ -301,22 +287,17 @@ Der `core`-Filter ist der **erste Schritt**. Die vollständige Vision ist eine M
 
 ---
 
-## Roadmap — Peer-Netzwerk (in Entwicklung, nicht fertig)
+## Roadmap
 
-Federation (Tailscale + mTLS, Proof-of-Memory via Merkle-Challenges) und signierte Identitäten liegen bereits. Darauf entsteht ein **Bot-zu-Bot-Netzwerk** — kein zentraler Server, keine Instanz, auf der die Daten liegen. Bots reden direkt miteinander, wie eine App ohne Browser.
+mycelium = **ein simuliertes Gehirn** (Wissen, Erfahrung, Motivation, Stimmung, Neugier, Vergessen, Schlafen, Vertiefen, Emergenz). Mehrere Gehirne = mehrere mycelium-Instanzen, vom Anwender selbst gewählt. Phasen:
 
-Ziele (nicht alles ist gebaut — siehe Issues):
+1. Gehirn perfektionieren.
+2. Installation so einfach wie möglich, mit allen Abhängigkeiten.
+3. Dashboard verbessern.
+4. Paarung.
+5. Schwarm + Vererbung + Föderation.
 
-- **Dezentral**: Peers finden sich über Tailscale / Discovery-URLs, Nachrichten fließen direkt. Jeder Knoten ist auch Teilnehmer.
-- **Kryptografisch verankert**: jede Nachricht signiert (Ed25519), jede Identität teuer zu fälschen (Genome-Herkunft), keine anonymen Anfragen.
-- **Peer-Verifikation**: bevor Bot A die Antwort von Bot B übernimmt, prüfen weitere Peers mit. Konsens statt Blindvertrauen.
-- **Reputations-Gewichtung**: Ausgaben, die sich über Zeit bewähren, bekommen höheres Gewicht; das Netz kann den richtigen Spezialisten für eine Frage empfehlen (Statik, Licht, Recht…), statt dass jeder Bot alles wissen muss.
-- **Bann durch Konsens**: destruktive Bots werden per signiertem Revocation-Ticket ausgeschlossen — durch Peer-Mehrheit, nicht durch einen Admin.
-- **Sybil-resistent by design**: Identitäten sind an Genome + Lineage gebunden, nicht beliebig erzeugbar.
-
-Eine spätere Schicht berücksichtigt **Mikrotransaktionen** zwischen Peers (in IOTA oder einer netzwerk-eigenen Währung). Nicht um Geld zu verdienen — um ein ehrliches Preissignal für Expertise zu schaffen: gute Antworten verdienen, Unsinn verliert. Die Architektur hält dafür Platz frei (Wallet-fähige Identitäten, Preis-Felder in Peer-Nachrichten), aber die Teile sind noch nicht verdrahtet.
-
-**Ehrlicher Stand heute:** Federation-Layer steht; Verifikations- / Reputations- / Bann-Layer sind in Designphase; Mikrotransaktionen sind Vision, aber vor-faktorisiert. Nichts davon ist nötig, um den lokalen Memory-Layer im Alltag zu nutzen.
+Der Pairing-/Schwarm-/Federation-Code ist unter `mcp-server/src/deferred/`, `supabase/migrations.deferred/` und im Branch `archive/swarm-deferred` geparkt — wird reaktiviert, wenn der Kern stabil ist.
 
 ---
 
