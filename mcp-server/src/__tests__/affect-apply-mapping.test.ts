@@ -52,7 +52,6 @@ test("AFFECT_TO_NEUROCHEM_EVENT_MAP has an entry for every AffectEvent", () => {
 test("every mapped neurochem event is in NEUROCHEM_RECOGNISED_EVENTS", () => {
   const recognised = new Set<string>(NEUROCHEM_RECOGNISED_EVENTS);
   for (const [legacy, neurochem] of Object.entries(AFFECT_TO_NEUROCHEM_EVENT_MAP)) {
-    if (neurochem === "__UNMAPPED__") continue; // documented gap (recall_touch)
     assert.ok(
       recognised.has(neurochem),
       `${legacy} maps to '${neurochem}', which neurochem_apply does not recognise`
@@ -60,18 +59,18 @@ test("every mapped neurochem event is in NEUROCHEM_RECOGNISED_EVENTS", () => {
   }
 });
 
-test("recall_touch is the only documented unmapped AffectEvent", () => {
-  // If you map recall_touch in SQL (and update AFFECT_TO_NEUROCHEM_EVENT_MAP),
-  // delete this test. If a NEW unmapped event appears, fail loudly: it is
-  // a silent drift waiting to corrupt compute_affect().
-  const unmapped = Object.entries(AFFECT_TO_NEUROCHEM_EVENT_MAP)
-    .filter(([, v]) => v === "__UNMAPPED__")
-    .map(([k]) => k);
-  assert.deepEqual(
-    unmapped,
-    ["recall_touch"],
-    "unexpected set of unmapped AffectEvents — surface drift from affect_apply() SQL"
-  );
+test("no AffectEvent is unmapped (Phase 1 recall_touch gap closed in migration 062)", () => {
+  // Until migration 062, recall_touch had no SQL mapping and was sentinel-marked
+  // "__UNMAPPED__". Migration 062 closed that gap (recall_touch → familiar_task).
+  // Going forward, every AffectEvent must map to a real neurochem label — any
+  // resurgent UNMAPPED would be a regression.
+  for (const [legacy, neurochem] of Object.entries(AFFECT_TO_NEUROCHEM_EVENT_MAP)) {
+    assert.notEqual(
+      neurochem as string,
+      "__UNMAPPED__",
+      `${legacy} regressed to UNMAPPED — restore its SQL mapping in affect_apply()`
+    );
+  }
 });
 
 test("NEUROCHEM_RECOGNISED_EVENTS pins the seven labels neurochemUpdateSchema enforces", () => {
