@@ -258,23 +258,46 @@ mycelium/
 
 Mycelium is designed to run **without a cloud LLM** on a Mac mini or laptop with 16 GB RAM. So that a 7–8B model (e.g. `qwen3:8b` via Ollama) doesn't choke on the tool schema load, the MCP server offers a focused profile:
 
-**`MYCELIUM_TOOL_PROFILE=core`** → only the 5 essential tools get registered (`prime_context`, `recall`, `remember`, `absorb`, `digest`). The default `full` registers everything — fine for Claude / Codex, but ~18k tokens of pure schema is too much for an 8B model.
+**`MYCELIUM_TOOL_PROFILE=core`** → only the 6 essential tools get registered (`prime_context`, `prime_context_compact`, `recall`, `remember`, `absorb`, `digest`). The default `full` registers everything — fine for Claude / Codex, but ~18k tokens of pure schema is too much for an 8B model.
 
-In the MCP config (`.mcp.json` or your client's settings):
+`prime_context_compact` renders the same data as `prime_context` in a flat bracketed format with no markdown, which small local models parse more reliably (see [issue #3](../../issues/3)).
+
+### Two profiles in parallel (recommended)
+
+If you run **both** a cloud-grade model (Claude / Codex) and a local 7–8B model on the same machine, declare two MCP server entries side-by-side. Each client connects to whichever profile fits its size — no profile-switching, no conflict. Both processes share the same Supabase + Ollama backend.
 
 ```json
-"mycelium-core": {
-  "command": "node",
-  "args": ["/absolute/path/to/mycelium/mcp-server/dist/index.js"],
-  "env": {
-    "MYCELIUM_TOOL_PROFILE": "core",
-    "SUPABASE_URL": "http://localhost:54321",
-    "SUPABASE_KEY": "...",
-    "OLLAMA_URL": "http://localhost:11434",
-    "EMBEDDING_MODEL": "nomic-embed-text"
+{
+  "mcpServers": {
+    "mycelium-full": {
+      "command": "node",
+      "args": ["/absolute/path/to/mycelium/mcp-server/dist/index.js"],
+      "env": {
+        "MYCELIUM_TOOL_PROFILE": "full",
+        "MYCELIUM_AGENT_LABEL": "main-full",
+        "SUPABASE_URL": "http://localhost:54321",
+        "SUPABASE_KEY": "...",
+        "OLLAMA_URL": "http://localhost:11434",
+        "EMBEDDING_MODEL": "nomic-embed-text"
+      }
+    },
+    "mycelium-core": {
+      "command": "node",
+      "args": ["/absolute/path/to/mycelium/mcp-server/dist/index.js"],
+      "env": {
+        "MYCELIUM_TOOL_PROFILE": "core",
+        "MYCELIUM_AGENT_LABEL": "main-core",
+        "SUPABASE_URL": "http://localhost:54321",
+        "SUPABASE_KEY": "...",
+        "OLLAMA_URL": "http://localhost:11434",
+        "EMBEDDING_MODEL": "nomic-embed-text"
+      }
+    }
   }
 }
 ```
+
+If you only run one tier of model, drop the other entry. Both processes appear separately in the dashboard's agents tab so you can see which profile a client is on.
 
 ### RAM tuning when running multiple models
 
