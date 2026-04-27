@@ -6503,8 +6503,6 @@ const SYN = (() => {
   }
 
   function activate3D() {
-    if (!three.scene) { if (!init3D()) return; }
-    rebuildScene3D();
     const mount = $("syn-canvas-3d");
     if (mount) mount.style.display = "block";
     if (canvas) canvas.style.display = "none";
@@ -6512,9 +6510,27 @@ const SYN = (() => {
     if (h2) h2.style.display = "none";
     if (h3) h3.style.display = "";
     three.on = true;
+    clearSynError();
+
+    // Primary path: 3d-force-graph (Vasturiano). Particle trails along
+    // weighted edges, deformed-Icosahedron somata, organic curved tubes.
+    // Falls back to the hand-rolled Three.js path if the vendor file
+    // didn't load (corp proxy, blocked bundle, etc.).
+    if (typeof ForceGraph3D !== "undefined") {
+      const fg = ensureForceGraph();
+      if (fg) {
+        fg.graphData(buildGraphData());
+        // ForceGraph runs its own animation loop — kill any leftover
+        // hand-rolled rAF from a previous activation.
+        if (three.rafId) { cancelAnimationFrame(three.rafId); three.rafId = null; }
+        return;
+      }
+    }
+    // Fallback — hand-rolled scene
+    if (!three.scene) { if (!init3D()) return; }
+    rebuildScene3D();
     if (three.rafId) cancelAnimationFrame(three.rafId);
     three.rafId = requestAnimationFrame(render3D);
-    // Resolution für Line2-Materials nach Mount-Sichtbarkeit nachziehen.
     requestAnimationFrame(() => resize3D());
   }
 
@@ -6522,6 +6538,8 @@ const SYN = (() => {
     three.on = false;
     if (three.rafId) cancelAnimationFrame(three.rafId);
     three.rafId = null;
+    // ForceGraph keeps its own renderer alive between activations — leaving
+    // the mount hidden is enough; the graph re-attaches on next activate3D.
     const mount = $("syn-canvas-3d");
     if (mount) mount.style.display = "none";
     if (canvas) canvas.style.display = "";
