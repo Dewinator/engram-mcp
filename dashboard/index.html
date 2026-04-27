@@ -6382,7 +6382,11 @@ const SYN = (() => {
         const cat = nodeColor(n.category);
         const high = nodeHighlight(n.category);
         const baseR = 1.4 + Math.log(1 + (n.access || 0)) * 0.8 + (n.strength ?? 0.5) * 1.4;
-        const geo = new THREE.IcosahedronGeometry(baseR * 1.55, 2);
+        // detail=4 (1280 faces) → smooth sphere silhouette. detail=2 (80
+        // faces) showed individual triangles at the radii we render at.
+        // Vertex deformation is now ±5% so the sphere quality is preserved
+        // while each soma still gets its own id-seeded "cell shape".
+        const geo = new THREE.IcosahedronGeometry(baseR * 1.55, 4);
         const pos = geo.attributes.position;
         let h = 0;
         const idStr = String(n.id || "");
@@ -6390,7 +6394,7 @@ const SYN = (() => {
         for (let i = 0; i < pos.count; i++) {
           const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
           const seed = (h ^ (i * 2654435761)) >>> 0;
-          const r = ((seed % 1000) / 1000 - 0.5) * 0.22; // ±11% Verformung
+          const r = ((seed % 1000) / 1000 - 0.5) * 0.10; // ±5% Verformung — subtler
           pos.setXYZ(i, x * (1 + r), y * (1 + r * 0.7), z * (1 + r * 0.5));
         }
         geo.computeVertexNormals();
