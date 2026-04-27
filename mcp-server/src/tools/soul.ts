@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { ExperienceService } from "../services/experiences.js";
 import type { MemoryService } from "../services/supabase.js";
 import type { ProjectService } from "../services/projects.js";
+import type { AffectService } from "../services/affect.js";
+import { formatCompactContext, type CompactContextInput } from "../util/context-formatter.js";
 
 // ===========================================================================
 // MOOD
@@ -349,6 +351,114 @@ export async function primeContext(
   }
 
   return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+}
+
+// ===========================================================================
+// PRIME CONTEXT COMPACT — flat bracketed format for small local models
+// (issue #3, N3 of the small-model-middleware epic).
+//
+// Same data sources as primeContext, but rendered through the pure
+// formatCompactContext util. Emits no markdown syntax — small models
+// (qwen2.5-7b, gemma3-4b) parse `**bold**` and `#` headings as content.
+// Hard ceiling ~1500 tokens.
+// ===========================================================================
+export const primeContextCompactSchema = primeContextSchema;
+
+export async function primeContextCompact(
+  experienceService: ExperienceService,
+  memoryService: MemoryService,
+  skillsService: import("../services/skills.js").SkillsService,
+  affectService: AffectService,
+  input: z.infer<typeof primeContextCompactSchema>
+) {
+  const ctx = await experienceService.primeContextStatic();
+
+  let taskExperiences: Awaited<ReturnType<typeof experienceService.recall>> = [];
+  let taskMemories: Awaited<ReturnType<typeof memoryService.search>> = [];
+  if (input.task_description && input.recall_limit > 0) {
+    const [exps, mems] = await Promise.all([
+      experienceService
+        .recall(input.task_description, { limit: input.recall_limit, includeLessons: true })
+        .catch(() => []),
+      memoryService
+        .search(input.task_description, undefined, input.recall_limit, 0.6)
+        .catch(() => []),
+    ]);
+    taskExperiences = exps;
+    taskMemories    = mems;
+  }
+
+  // affect_get is best-effort; the formatter omits the section if empty.
+  const affect = await affectService.get().catch(() => null);
+
+  let skillHints: CompactContextInput["skill_hints"];
+  if (input.task_type) {
+    try {
+      const recs = await skillsService.recommend(input.task_type, 2, 3);
+      if (recs.length > 0) {
+        skillHints = {
+          task_type: input.task_type,
+          skills: recs.map((r) => ({
+            skill: r.skill,
+            success_rate: r.success_rate,
+            n_total: r.n_total,
+            n_failure: r.n_failure,
+          })),
+        };
+      }
+    } catch (err) {
+      console.error("prime_context_compact: skill_recommend failed (non-fatal):", err);
+    }
+  }
+
+  const compactInput: CompactContextInput = {
+    task_description: input.task_description,
+    affect: affect ? {
+      curiosity:    affect.curiosity,
+      frustration:  affect.frustration,
+      satisfaction: affect.satisfaction,
+      confidence:   affect.confidence,
+    } : undefined,
+    mood: {
+      label: ctx.mood.label,
+      valence: ctx.mood.valence,
+      arousal: ctx.mood.arousal,
+      n: ctx.mood.n,
+      window_hours: ctx.mood.window_hours,
+    },
+    recent_pattern: ctx.recent_pattern.last_n > 0 ? {
+      last_n: ctx.recent_pattern.last_n,
+      success_rate: ctx.recent_pattern.success_rate,
+      avg_difficulty: ctx.recent_pattern.avg_difficulty,
+    } : undefined,
+    traits: ctx.top_traits.map((t) => ({
+      trait: t.trait,
+      polarity: t.polarity,
+      evidence_count: t.evidence_count,
+    })),
+    intentions: ctx.active_intentions.map((i) => ({
+      intention: i.intention,
+      priority: i.priority,
+      progress: i.progress,
+    })),
+    conflicts: ctx.open_conflicts.slice(0, 3).map((c) => ({
+      a_trait: c.a_trait,
+      b_trait: c.b_trait,
+      polarity_diff: c.polarity_diff,
+    })),
+    skill_hints: skillHints,
+    task_experiences: taskExperiences.slice(0, input.recall_limit).map((e) => ({
+      content: e.content,
+      outcome: e.outcome,
+      kind: e.kind,
+    })),
+    task_memories: taskMemories.slice(0, input.recall_limit).map((m) => ({
+      content: m.content,
+    })),
+  };
+
+  const text = formatCompactContext(compactInput);
+  return { content: [{ type: "text" as const, text }] };
 }
 
 // ===========================================================================
