@@ -105,7 +105,12 @@ async function handleChat(req: http.IncomingMessage, res: http.ServerResponse): 
   const taskType = (req.headers["x-mycelium-task-type"] as string | undefined)?.trim() || undefined;
 
   const taskText = lastUserText(parsed.messages);
+  // Diff cache hit count before/after to detect whether THIS call landed in
+  // the cache. Cheaper than threading an "isHit" flag through the fetcher.
+  const cacheBefore = fetcher.cacheStats()?.hits ?? 0;
   const contextText = await fetcher.buildAndFormat(taskText, taskType);
+  const cacheAfter  = fetcher.cacheStats()?.hits ?? 0;
+  const cacheHit    = cacheAfter > cacheBefore;
 
   const injectedMessages = injectContext(parsed.messages, contextText);
   const upstreamBody = JSON.stringify({ ...parsed, messages: injectedMessages });
@@ -139,6 +144,7 @@ async function handleChat(req: http.IncomingMessage, res: http.ServerResponse): 
     "Cache-Control":             "no-store",
     "X-Mycelium-Injected":       contextText ? "1" : "0",
     "X-Mycelium-Injected-Bytes": contextText ? String(Buffer.byteLength(contextText, "utf8")) : "0",
+    "X-Mycelium-Cache":           cacheHit ? "hit" : "miss",
   });
   res.end(buf);
 }
@@ -159,6 +165,7 @@ async function handleHealth(_req: http.IncomingMessage, res: http.ServerResponse
     proxy_port: PROXY_PORT,
     targets: { ollama: OLLAMA_URL, supabase: SUPABASE_URL },
     upstreams: Object.assign({}, ...checks),
+    cache: fetcher.cacheStats(),
     phase: 1,
   });
 }
