@@ -6382,21 +6382,20 @@ const SYN = (() => {
         const cat = nodeColor(n.category);
         const high = nodeHighlight(n.category);
         const baseR = 1.4 + Math.log(1 + (n.access || 0)) * 0.8 + (n.strength ?? 0.5) * 1.4;
-        // detail=4 (1280 faces) → smooth sphere silhouette. detail=2 (80
-        // faces) showed individual triangles at the radii we render at.
-        // Vertex deformation is now ±5% so the sphere quality is preserved
-        // while each soma still gets its own id-seeded "cell shape".
-        const geo = new THREE.IcosahedronGeometry(baseR * 1.55, 4);
-        const pos = geo.attributes.position;
+        // SphereGeometry (Lat-Long-subdivision) instead of an Icosahedron:
+        // even at high detail an Icosahedron's per-vertex deformation makes
+        // the silhouette look like "many large triangles trying to form a
+        // sphere". A real sphere with id-seeded per-axis scaling gives the
+        // soma a slightly egg-shaped cell-form without any visible facets.
+        // 32 width × 24 height segments ≈ 1500 faces — smooth at every radius.
         let h = 0;
         const idStr = String(n.id || "");
         for (let i = 0; i < idStr.length; i++) h = (h * 31 + idStr.charCodeAt(i)) | 0;
-        for (let i = 0; i < pos.count; i++) {
-          const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-          const seed = (h ^ (i * 2654435761)) >>> 0;
-          const r = ((seed % 1000) / 1000 - 0.5) * 0.10; // ±5% Verformung — subtler
-          pos.setXYZ(i, x * (1 + r), y * (1 + r * 0.7), z * (1 + r * 0.5));
-        }
+        const sx = 1 + (((h        ) % 1000) / 1000 - 0.5) * 0.16; // ±8%
+        const sy = 1 + (((h >>>  8 ) % 1000) / 1000 - 0.5) * 0.16;
+        const sz = 1 + (((h >>> 16 ) % 1000) / 1000 - 0.5) * 0.16;
+        const geo = new THREE.SphereGeometry(baseR * 1.55, 32, 24);
+        geo.scale(sx, sy, sz);
         geo.computeVertexNormals();
         const mat = new THREE.MeshLambertMaterial({
           color: cat,
