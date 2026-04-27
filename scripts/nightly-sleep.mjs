@@ -35,6 +35,16 @@ const { IdentityService }    = await import(path.join(DIST, "services/identity.j
 const identityTools          = await import(path.join(DIST, "tools/identity.js"));
 const { consolidateByPatterns } = await import(path.join(__dirname, "consolidate-by-patterns.mjs"));
 const { synthesizeCluster, unloadQwen } = await import(path.join(__dirname, "synthesize-cluster.mjs"));
+// Issue #80: confidence + scope admission gate for the two promotion paths.
+// Pure helpers — no DB / no I/O. Loaded from the TS build so behaviour is
+// pinned by mcp-server/src/__tests__/admission-gate.test.ts.
+const {
+  gateLessonAdmission,
+  gateTraitAdmission,
+  LESSON_MIN_CONFIDENCE,
+  LESSON_MIN_SOURCES,
+  TRAIT_MIN_EVIDENCE,
+} = await import(path.join(DIST, "services/admission-gate.js"));
 
 // Low-level REST fuer sleep_cycles insert/update — reines fetch, keine extra dep
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -143,7 +153,23 @@ async function runSws() {
 //   promotion_candidates → promote_lesson_to_trait fuer reife Lessons
 //   unloadQwen           — Ollama keep_alive=0: Modell aus RAM fuer andere Tasks
 // ---------------------------------------------------------------------------
-const REM_MIN_CONFIDENCE     = Number(process.env.REM_MIN_CONFIDENCE     || 0.5);
+// Lesson-admission thresholds (issue #80). REM_MIN_CONFIDENCE is kept as a
+// legacy alias for REM_LESSON_MIN_CONFIDENCE — the floor used to be 0.5; the
+// gated default is 0.7 (matches the issue spec). Operators that previously
+// tuned the old name keep working.
+const REM_LESSON_MIN_CONFIDENCE = Number(
+  process.env.REM_LESSON_MIN_CONFIDENCE
+  ?? process.env.REM_MIN_CONFIDENCE
+  ?? LESSON_MIN_CONFIDENCE,
+);
+const REM_LESSON_MIN_SOURCES = Number(
+  process.env.REM_LESSON_MIN_SOURCES ?? LESSON_MIN_SOURCES,
+);
+const REM_LESSON_ALLOW_MIXED_PROJECT =
+  process.env.REM_LESSON_ALLOW_MIXED_PROJECT === "1";
+const REM_TRAIT_MIN_EVIDENCE = Number(
+  process.env.REM_TRAIT_MIN_EVIDENCE ?? TRAIT_MIN_EVIDENCE,
+);
 const REM_CLUSTER_SIMILARITY = Number(process.env.REM_CLUSTER_SIMILARITY || 0.80);
 const REM_CLUSTER_MIN_SIZE   = Number(process.env.REM_CLUSTER_MIN_SIZE   || 2);
 const REM_CLUSTER_WINDOW_DAYS = Number(process.env.REM_CLUSTER_WINDOW_DAYS || 30);
@@ -153,9 +179,30 @@ async function runRem() {
     clusters_found: 0,
     lessons_synthesized: 0,
     lessons_reinforced: 0,
+    // Per-reason rejection counters from gateLessonAdmission. The legacy
+    // `lessons_skipped_low_conf` is preserved (issue #80) so the existing
+    // dashboard tile keeps working; the two new counters distinguish the
+    // sources/scope rejections so operators can see WHY synthesis didn't
+    // produce a lesson. Sum of all three = clusters_found - lessons_*
+    // promoted/reinforced.
     lessons_skipped_low_conf: 0,
+    lessons_skipped_too_few_sources: 0,
+    lessons_skipped_mixed_project: 0,
     lessons_deduped: 0,
     traits_promoted: 0,
+    // Trait-gate rejection counters (issue #80). auto_summary catches the
+    // "Ich habe gelernt …" first-person episode recap that previously
+    // polluted the self-model with vectorworks product data.
+    traits_skipped_auto_summary: 0,
+    traits_skipped_low_evidence: 0,
+    // Lesson-gate config snapshot — useful when comparing two cycles after
+    // a threshold tweak via env vars.
+    gate: {
+      lesson_min_confidence: REM_LESSON_MIN_CONFIDENCE,
+      lesson_min_sources:    REM_LESSON_MIN_SOURCES,
+      lesson_allow_mixed_project: REM_LESSON_ALLOW_MIXED_PROJECT,
+      trait_min_evidence:    REM_TRAIT_MIN_EVIDENCE,
+    },
     // Reasoning telemetry (Ollama 0.20+ think:true). lessons_with_thinking
     // is the count of synthesise calls where the model emitted any chars
     // into message.thinking — gives a yes/no signal that the reasoning
@@ -213,9 +260,36 @@ async function runRem() {
         out.lessons_with_thinking += 1;
         out.lessons_thinking_chars_total += synth._thinking_chars;
       }
-      if (!synth.lesson || synth.confidence < REM_MIN_CONFIDENCE) {
+      if (!synth.lesson) {
+        // Synthesizer returned no lesson body — model failed to emit JSON or
+        // it parsed but had an empty lesson string. Treated as low-conf so
+        // the rejection is visible in the existing telemetry tile.
         out.lessons_skipped_low_conf += 1;
         continue;
+      }
+      // Reinforcement of an already-existing lesson short-circuits the gate:
+      // a lesson that is already on disk has already passed the gate (or
+      // pre-dates it). Reinforcement is just adding evidence, not creating
+      // new content, so blocking it would only suppress useful signal.
+      if (!synth.reinforce) {
+        const decision = gateLessonAdmission(
+          {
+            confidence:        synth.confidence,
+            member_count:      synth.member_count ?? 0,
+            project_consistent: synth.project_consistent !== false,
+          },
+          {
+            minConfidence:      REM_LESSON_MIN_CONFIDENCE,
+            minSources:         REM_LESSON_MIN_SOURCES,
+            allowMixedProject:  REM_LESSON_ALLOW_MIXED_PROJECT,
+          },
+        );
+        if (!decision.admit) {
+          if (decision.reason === "low_confidence")        out.lessons_skipped_low_conf += 1;
+          else if (decision.reason === "too_few_sources")  out.lessons_skipped_too_few_sources += 1;
+          else if (decision.reason === "mixed_project_scope") out.lessons_skipped_mixed_project += 1;
+          continue;
+        }
       }
       // After record/reinforce, push the lesson's salience up via the
       // universal salience layer (Migration 053). This is what makes a
@@ -248,10 +322,35 @@ async function runRem() {
   catch (e) { out.errors.push({ step: "dedup_lessons", msg: String(e?.message ?? e) }); }
 
   try {
-    const candidates = await expSvc.promotionCandidates(4, 0.7);
+    // Lower the SQL-side minEvidence to the gate's floor so we still see
+    // newly-eligible lessons; the JS gate then applies the auto-summary
+    // filter and the project-scope check (issue #80). The SQL function's
+    // own min_confidence still matches the lesson-gate confidence floor —
+    // a lesson admitted at REM_LESSON_MIN_CONFIDENCE is by construction
+    // above the trait-side floor, so re-using it keeps the two gates
+    // mutually consistent.
+    const candidates = await expSvc.promotionCandidates(
+      REM_TRAIT_MIN_EVIDENCE,
+      REM_LESSON_MIN_CONFIDENCE,
+    );
     for (const c of candidates.slice(0, 10)) {
-      const traitText = (c.lesson ?? c.lesson_text ?? "").slice(0, 160);
-      if (!traitText) continue;
+      const lessonText = c.lesson ?? c.lesson_text ?? "";
+      const decision = gateTraitAdmission(
+        {
+          lesson_text:    lessonText,
+          evidence_count: c.evidence_count ?? 0,
+          project_id:     c.project_id ?? null,
+        },
+        { minEvidence: REM_TRAIT_MIN_EVIDENCE },
+      );
+      if (!decision.admit) {
+        if (decision.reason === "auto_summary")      out.traits_skipped_auto_summary += 1;
+        else if (decision.reason === "low_evidence") out.traits_skipped_low_evidence += 1;
+        // missing_text falls through silently — the SQL side already
+        // refuses to promote empty lessons.
+        continue;
+      }
+      const traitText = lessonText.slice(0, 160);
       try {
         await expSvc.promoteToTrait(c.id ?? c.lesson_id, traitText, 0);
         out.traits_promoted += 1;
