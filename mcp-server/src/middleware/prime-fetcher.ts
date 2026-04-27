@@ -15,6 +15,7 @@
 
 import { PostgrestClient } from "@supabase/postgrest-js";
 import { CompactContextInput, formatCompactContext } from "../util/context-formatter.js";
+import { TtlLruCache, buildPrimeKey, type PrimeCacheOptions, type CacheStats } from "./prime-cache.js";
 
 export interface PrimeFetcherOptions {
   supabaseUrl: string;
@@ -22,6 +23,8 @@ export interface PrimeFetcherOptions {
   ollamaUrl?:  string;          // for embedding the task_description
   embeddingModel?: string;
   recallLimit?: number;         // experiences + memories per side
+  /** Cache configuration (#7, N7). Pass null to disable caching entirely. */
+  cache?:      PrimeCacheOptions | null;
 }
 
 interface MoodSnapshotRpc {
@@ -71,6 +74,7 @@ export class PrimeFetcher {
   private ollamaUrl: string;
   private embeddingModel: string;
   private recallLimit: number;
+  private cache: TtlLruCache<string> | null;
 
   constructor(opts: PrimeFetcherOptions) {
     // PostgrestClient directly, not @supabase/supabase-js: the self-hosted
@@ -85,6 +89,17 @@ export class PrimeFetcher {
     this.ollamaUrl      = opts.ollamaUrl ?? "http://127.0.0.1:11434";
     this.embeddingModel = opts.embeddingModel ?? "nomic-embed-text";
     this.recallLimit    = opts.recallLimit ?? 5;
+    this.cache          = opts.cache === null ? null : new TtlLruCache<string>(opts.cache ?? {});
+  }
+
+  /** Cache stats for /health surface. Returns null when cache is disabled. */
+  cacheStats(): CacheStats | null {
+    return this.cache ? this.cache.stats() : null;
+  }
+
+  /** Drop the cache (for tests + manual invalidation). */
+  clearCache(): void {
+    this.cache?.clear();
   }
 
   /**
@@ -166,8 +181,27 @@ export class PrimeFetcher {
     }
   }
 
-  /** Convenience: build + format in one call. Returns null on failure. */
+  /**
+   * Convenience: build + format in one call. Returns null on failure.
+   *
+   * When the cache is enabled (default), repeat calls within `ttlMs` for the
+   * same `(taskDescription, taskType)` short-circuit Supabase + Ollama
+   * entirely (#7). Cache hits return the same formatted string regardless
+   * of any concurrent agent_affect / experience writes — that's the
+   * intended TTL trade-off, calibrated against the issue body's 5min
+   * default.
+   */
   async buildAndFormat(taskDescription: string | undefined, taskType?: string): Promise<string | null> {
+    if (this.cache) {
+      const key = buildPrimeKey(taskDescription, taskType);
+      const cached = this.cache.get(key);
+      if (cached !== undefined) return cached;
+      const input = await this.build(taskDescription, taskType);
+      if (!input) return null;
+      const formatted = formatCompactContext(input);
+      this.cache.set(key, formatted);
+      return formatted;
+    }
     const input = await this.build(taskDescription, taskType);
     if (!input) return null;
     return formatCompactContext(input);
