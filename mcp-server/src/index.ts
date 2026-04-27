@@ -150,6 +150,10 @@ import {
   classifyContentSchema, classifyContent,
   guardStatusSchema, guardStatus,
 } from "./tools/guard.js";
+import { NodeIdentityService } from "./services/node-identity.js";
+import {
+  nodeIdentityGetSchema, nodeIdentityGet,
+} from "./tools/node-identity.js";
 import {
   getSelfModelSchema, getSelfModel,
   updateSelfModelSchema, updateSelfModel,
@@ -218,6 +222,7 @@ const guardService = new GuardService(
 );
 const neurochemistryService = new NeurochemistryService(SUPABASE_URL, SUPABASE_KEY);
 const relationsService      = new RelationsService(SUPABASE_URL, SUPABASE_KEY);
+const nodeIdentityService   = new NodeIdentityService(SUPABASE_URL, SUPABASE_KEY);
 // DEFERRED 2026-04-26 — federation service parked until federation phase.
 // const federationService = new FederationService(
 //   SUPABASE_URL,
@@ -812,6 +817,19 @@ server.tool(
   "Mark an emergence event resolved with a short explanation of the outcome or decision.",
   resolveEmergenceSchema.shape,
   withErrorHandling((input) => resolveEmergence(identityService, resolveEmergenceSchema.parse(input)))
+);
+
+// --- swarm phase 1b: node identity (issue #76) -----------------------------
+// Read-only handle on the cryptographic identity row produced by
+// scripts/init-node-identity.mjs. Other agents and local tooling can call
+// this to quote `node_id` / pubkey without re-deriving the multihash or
+// touching the privkey file. The wire-format convention is fixed by
+// docs/SWARM_SPEC.md §3.5.
+server.tool(
+  "node_identity_get",
+  "Return THIS node's cryptographic identity row: node_id (multihash of pubkey, base58btc-encoded per docs/SWARM_SPEC.md §3.5), base64 pubkey, optional display_name, created_at. Returns a friendly 'not initialized' message when the bootstrap script hasn't run yet.",
+  nodeIdentityGetSchema.shape,
+  withErrorHandling((input) => nodeIdentityGet(nodeIdentityService, nodeIdentityGetSchema.parse(input)))
 );
 
 /* DEFERRED 2026-04-26 — pairing (tinder) + federation-PKI + federation Phase 2.
