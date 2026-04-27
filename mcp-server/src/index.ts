@@ -57,6 +57,7 @@ import {
   resolveConflictSchema, resolveConflict,
   synthesizeConflictSchema, synthesizeConflict,
   primeContextSchema, primeContext,
+  primeContextCompactSchema, primeContextCompact,
   narrateSelfSchema, narrateSelf,
 } from "./tools/soul.js";
 import { absorbSchema, absorb } from "./tools/absorb.js";
@@ -309,6 +310,7 @@ const TOOL_PROFILE = (process.env.MYCELIUM_TOOL_PROFILE ?? "full").toLowerCase()
 
 const CORE_TOOLS = [
   "prime_context",
+  "prime_context_compact",   // N3 — flat bracketed format for small local models
   "recall",
   "remember",
   "absorb",
@@ -589,6 +591,13 @@ server.tool(
   "THE auto-prime entry point. Returns a complete first-person system-prompt prefix: current mood, identity traits, active intentions, inner tensions, (if task_description is provided) semantically relevant past experiences and memories, AND (if task_type is provided) the skills that have historically worked best for that kind of task. Use this BEFORE starting any non-trivial task.",
   primeContextSchema.shape,
   withErrorHandling((input) => primeContext(experienceService, memoryService, skillsService, primeContextSchema.parse(input)))
+);
+
+server.tool(
+  "prime_context_compact",
+  "Same data as prime_context but rendered in a flat bracketed format (no markdown) for small local models that parse **bold** and # headings as content. Hard ceiling ~1500 tokens. Sections: [state] [mood] [recent pattern] [identity] [aspirations] [tensions] [skills] [task experiences] [facts] [soul-hint]. Empty sections are omitted entirely.",
+  primeContextCompactSchema.shape,
+  withErrorHandling((input) => primeContextCompact(experienceService, memoryService, skillsService, affectService, primeContextCompactSchema.parse(input)))
 );
 
 server.tool(
