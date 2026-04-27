@@ -14,6 +14,9 @@ dist/
 __pycache__/
 *.pyc
 
+# Astro landing-site build (lives in its own repo / build target — never tracked here)
+site/
+
 # Logs + ephemeral
 *.log
 *.sql.bak
