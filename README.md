@@ -318,9 +318,20 @@ Then: `launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.ollama`
 
 ---
 
-## Roadmap — small-model middleware
+## Small-model middleware
 
-The `core` filter is the **first step**. The full vision is a middleware that hides tools entirely from the LLM — `prime_context` gets injected deterministically into the system prompt, the model no longer has to "decide whether to use the tool". Track this under the [`small-model`](../../issues?q=label%3Asmall-model) label.
+The two-profile config above is the **first step**. The middleware is the keystone: a reverse-proxy that intercepts `/api/chat`, deterministically injects `prime_context_compact`, captures memory-worthy statements via regex, and fires session digests on idle. The model no longer has to *decide* whether to call a tool — there are essentially no tools to call.
+
+```bash
+SUPABASE_URL=http://localhost:54321 \
+SUPABASE_KEY=<service-role-jwt> \
+node mcp-server/dist/middleware/proxy.js
+# → http://127.0.0.1:18794   (Ollama-compatible /api/chat)
+```
+
+Point your MCP client (or any Ollama caller) at port 18794 instead of 11434 — same request shape, same response shape, plus context injection + auto-absorb + auto-digest.
+
+Full architecture, configuration knobs, observability surface, and failure modes: **[docs/middleware.md](docs/middleware.md)**. Issues under the [`small-model`](../../issues?q=label%3Asmall-model) label track its evolution.
 
 **Goal:** local models should not be inferior to cloud models in their specialization, because they receive the complete persistent identity / affect / memory from token 1 — while a cloud model starts every session blank.
 
