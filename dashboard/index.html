@@ -1086,6 +1086,37 @@
     </section>
 
     <section class="card" style="margin-top:16px">
+      <h2 data-i18n="card.regulator.trend">verlauf der gefühlslage</h2>
+      <div class="sub" data-i18n="card.regulator.trend.sub" style="margin-bottom:10px">Wie sich die vier Dimensionen plus Valenz/Arousal über die letzten Stunden bewegt haben. Quelle: <code>agent_affect_history</code> (compute_affect-Trigger). Tuning-Surface für Issue #11 Phase 10.</div>
+      <div class="syn-toolbar" style="margin-bottom:10px">
+        <div class="syn-group">
+          <span class="syn-group-label" data-i18n="card.regulator.trend.window">zeitraum</span>
+          <select id="affect-trend-hours" style="background:var(--bg-elev-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px">
+            <option value="24">24 h</option>
+            <option value="72" selected>72 h</option>
+            <option value="168">7 Tage</option>
+            <option value="336">14 Tage</option>
+          </select>
+        </div>
+        <div class="syn-divider"></div>
+        <div class="syn-group">
+          <span class="syn-group-label" data-i18n="card.regulator.trend.bucket">auflösung</span>
+          <select id="affect-trend-bucket" style="background:var(--bg-elev-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px">
+            <option value="15">15 min</option>
+            <option value="60" selected>1 h</option>
+            <option value="240">4 h</option>
+          </select>
+        </div>
+        <div id="affect-trend-meta" class="sub" style="margin-left:auto;font-size:11px"></div>
+      </div>
+      <div style="position:relative;height:220px"><canvas id="chart-affect-dims"></canvas></div>
+      <div style="position:relative;height:160px;margin-top:12px"><canvas id="chart-affect-valaro"></canvas></div>
+      <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:0.10em;color:var(--text-dim);margin:18px 0 6px" data-i18n="card.regulator.trend.triggers">trigger-aufschlüsselung</h3>
+      <div class="sub" data-i18n="card.regulator.trend.triggers.sub" style="margin-bottom:10px">Welche Event-Typen das compute_affect-Update auslösen und wie der Affekt im Mittel pro Trigger aussieht. Wenn ein Trigger dominiert, kippt das Tuning.</div>
+      <table class="mem" id="affect-trend-triggers"></table>
+    </section>
+
+    <section class="card" style="margin-top:16px">
       <h2 data-i18n="card.regulator.belief">entscheidungs-finder</h2>
       <div class="sub" data-i18n="card.regulator.belief.sub" style="margin-bottom:10px">Eine separate Entscheidungs-Engine, die dem Agenten vorschlägt, ob er bei einer offenen Frage besser im Gedächtnis suchen, recherchieren oder um Hilfe fragen sollte. Wählt jeweils den Weg mit der geringsten erwarteten Unsicherheit.</div>
       <div class="health-grid" id="belief-health"></div>
@@ -1881,6 +1912,8 @@ async function fetchJson(path) {
   return r.json();
 }
 const fetchAffect       = () => fetchJson("/affect");
+const fetchAffectHistory = (hours, bucket) =>
+  fetchJson(`/affect/history?hours=${hours|0}&bucket=${bucket|0}`);
 const fetchBeliefHealth = () => fetchJson("/belief/health");
 const fetchBeliefModel  = () => fetchJson("/belief/model");
 const fetchSkillStats   = () => fetchJson("/skills");
@@ -1964,6 +1997,117 @@ function renderAffect(state) {
     ["Verwandte Tags",      bias.include_adjacent_tags ? "ja — bezieht ähnliche Themen ein" : "nein"],
     ["Begründung",          `<span class="sub">${escapeHtml(bias.reason)}</span>`],
   ].map(([k,v]) => `<div class="health-item"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+}
+
+// Trend surface for issue #11 phase 10. Charts the four regulator dims +
+// valence/arousal over the last N hours, plus a per-trigger breakdown.
+// Empty windows render the canvas with a "noch keine Daten" annotation
+// instead of crashing — compute_affect started writing on 2026-04-26.
+function renderAffectTrend(payload) {
+  const sBox = payload?.series ?? null;
+  const tBox = payload?.triggers ?? null;
+  const meta = $("affect-trend-meta");
+  const series = sBox?.series ?? [];
+  const totalSamples = sBox?.total_samples ?? 0;
+  if (meta) {
+    meta.textContent = totalSamples > 0
+      ? `${totalSamples} Samples · ${series.length} Buckets · ${sBox?.bucket_minutes ?? "?"} min`
+      : "noch keine compute_affect-Daten in diesem Zeitraum";
+  }
+  const p = palette();
+  const labels = series.map(s => s.at);
+  const fmtTime = (iso) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString("de-DE", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    } catch { return iso; }
+  };
+  charts.affectDims?.destroy?.(); delete charts.affectDims;
+  charts.affectValAro?.destroy?.(); delete charts.affectValAro;
+
+  charts.affectDims = new Chart($("chart-affect-dims"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "Neugier",       data: series.map(s => s.curiosity),    borderColor: p.accent,  backgroundColor: p.accent  + "11", borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
+        { label: "Zufriedenheit", data: series.map(s => s.satisfaction), borderColor: p.good,    backgroundColor: p.good    + "11", borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
+        { label: "Vertrauen",     data: series.map(s => s.confidence),   borderColor: p.accent2, backgroundColor: p.accent2 + "11", borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
+        { label: "Frust",         data: series.map(s => s.frustration),  borderColor: p.bad,     backgroundColor: p.bad     + "11", borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { labels: { color: p.dim, font: { size: 11 }, usePointStyle: true, boxWidth: 8 } },
+        tooltip: { callbacks: { title: (items) => fmtTime(items[0]?.label) } },
+      },
+      scales: {
+        x: { ticks: { color: p.faint, font: { size: 10 }, maxRotation: 0, autoSkipPadding: 20, callback: (_v, i) => fmtTime(labels[i]) }, grid: { color: p.border + "44" } },
+        y: { min: 0, max: 1, ticks: { color: p.faint, font: { size: 10 } }, grid: { color: p.border + "44" } },
+      },
+    },
+  });
+
+  charts.affectValAro = new Chart($("chart-affect-valaro"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "Valenz",  data: series.map(s => s.valence), borderColor: p.accent3 || p.accent, backgroundColor: (p.accent3 || p.accent) + "11", borderWidth: 1.5, pointRadius: 0, tension: 0.3, yAxisID: "yV", fill: false },
+        { label: "Arousal", data: series.map(s => s.arousal), borderColor: p.warn,                backgroundColor: p.warn + "11",                borderWidth: 1.5, pointRadius: 0, tension: 0.3, yAxisID: "yA", fill: false },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { labels: { color: p.dim, font: { size: 11 }, usePointStyle: true, boxWidth: 8 } },
+        tooltip: { callbacks: { title: (items) => fmtTime(items[0]?.label) } },
+      },
+      scales: {
+        x: { ticks: { color: p.faint, font: { size: 10 }, maxRotation: 0, autoSkipPadding: 20, callback: (_v, i) => fmtTime(labels[i]) }, grid: { color: p.border + "44" } },
+        yV: { position: "left",  min: -1, max: 1, ticks: { color: p.faint, font: { size: 10 } }, grid: { color: p.border + "44" }, title: { display: true, text: "Valenz",  color: p.faint, font: { size: 10 } } },
+        yA: { position: "right", min: 0,  max: 1, ticks: { color: p.faint, font: { size: 10 } }, grid: { display: false },         title: { display: true, text: "Arousal", color: p.faint, font: { size: 10 } } },
+      },
+    },
+  });
+
+  const triggers = tBox?.triggers ?? [];
+  const tbl = $("affect-trend-triggers");
+  if (!triggers.length) {
+    tbl.innerHTML = `<tr><td class="empty" colspan="6">noch keine Trigger-Events im Fenster</td></tr>`;
+  } else {
+    const total = tBox.total_fires || 1;
+    const fmt = (v) => (v == null ? "—" : Number(v).toFixed(2));
+    const head = `<thead><tr><th>Trigger</th><th>Anteil</th><th>Fires</th><th>Ø Valenz</th><th>Ø Frust</th><th>Ø Zufriedenheit</th></tr></thead>`;
+    const rows = triggers.map(r => {
+      const pct = ((r.fires / total) * 100).toFixed(1);
+      return `<tr>
+        <td><code>${escapeHtml(r.trigger_event)}</code></td>
+        <td>${pct}%</td>
+        <td>${r.fires}</td>
+        <td>${fmt(r.avg_valence)}</td>
+        <td>${fmt(r.avg_frustration)}</td>
+        <td>${fmt(r.avg_satisfaction)}</td>
+      </tr>`;
+    }).join("");
+    tbl.innerHTML = head + `<tbody>${rows}</tbody>`;
+  }
+}
+
+async function loadAffectTrend() {
+  const hours = Number($("affect-trend-hours")?.value) || 72;
+  const bucket = Number($("affect-trend-bucket")?.value) || 60;
+  try {
+    const payload = await fetchAffectHistory(hours, bucket);
+    renderAffectTrend(payload);
+  } catch (e) {
+    renderAffectTrend({ series: { series: [], total_samples: 0 }, triggers: { triggers: [] } });
+    const meta = $("affect-trend-meta");
+    if (meta) meta.textContent = `Fehler: ${e.message}`;
+  }
 }
 
 // Compact affect render for the soul tab — same data as renderAffect() but
@@ -3816,6 +3960,7 @@ async function load() {
     renderAffect(aff);
     renderSoulAffect(aff);   // Same data, compact render under the mood disc
     renderBelief(beliefHealth, beliefModel);
+    loadAffectTrend();       // mig 064 — trend over time + per-trigger breakdown
 
     // learning tab (migrations 020 + 021)
     renderSkills(skillsData);
@@ -4399,6 +4544,14 @@ async function resolveTeacherEsc(action){
   TCH_OPEN_ESC = null;
   refreshTeacher();
 }
+
+// affect-trend select wiring
+document.addEventListener("DOMContentLoaded", () => {
+  const hSel = document.getElementById("affect-trend-hours");
+  const bSel = document.getElementById("affect-trend-bucket");
+  if (hSel) hSel.addEventListener("change", () => { loadAffectTrend(); });
+  if (bSel) bSel.addEventListener("change", () => { loadAffectTrend(); });
+});
 
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
