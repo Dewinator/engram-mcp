@@ -23,7 +23,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { ensureHostCert, peerPubkeyFromCert, peerCertFingerprint } from "./lib/tls-host.mjs";
+// Federation TLS helpers — only loaded when MYCELIUM_FEATURE_FEDERATION=1.
+// Refocus 2026-04-26 moved tls-host.mjs to scripts/deferred/lib/, so the
+// static import broke the dashboard for everyone else. Loaded lazily below.
+let ensureHostCert, peerPubkeyFromCert, peerCertFingerprint;
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const ROOT       = path.resolve(__dirname, "..");
@@ -1494,13 +1497,19 @@ const FED_PORT  = Number(process.env.FEDERATION_PORT || 8788);
 const HOST_LABEL = process.env.MYCELIUM_HOST_ID || "self";
 
 let hostCert;
-try {
-  hostCert = ensureHostCert(HOST_LABEL);
-  console.log(`federation host cert ready: ${hostCert.crtPath}`);
-  console.log(`  pubkey:      ${hostCert.pubkeyHex}`);
-  console.log(`  fingerprint: ${hostCert.fingerprintHex.slice(0, 32)}…`);
-} catch (e) {
-  console.error(`federation cert init FAILED — federation disabled: ${e instanceof Error ? e.message : String(e)}`);
+if (FEATURE.federation) {
+  try {
+    const tls = await import("./deferred/lib/tls-host.mjs");
+    ensureHostCert        = tls.ensureHostCert;
+    peerPubkeyFromCert    = tls.peerPubkeyFromCert;
+    peerCertFingerprint   = tls.peerCertFingerprint;
+    hostCert = ensureHostCert(HOST_LABEL);
+    console.log(`federation host cert ready: ${hostCert.crtPath}`);
+    console.log(`  pubkey:      ${hostCert.pubkeyHex}`);
+    console.log(`  fingerprint: ${hostCert.fingerprintHex.slice(0, 32)}…`);
+  } catch (e) {
+    console.error(`federation cert init FAILED — federation disabled: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 if (hostCert && FEATURE.federation) {
