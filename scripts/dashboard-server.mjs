@@ -380,6 +380,34 @@ async function handleAffect(_req, res) {
   }
 }
 
+// /affect/history?hours=72&bucket=60 → time-series + per-trigger breakdown
+// for the issue #11 phase-10 tuning surface (mig 064).
+async function handleAffectHistory(req, res) {
+  try {
+    const u = new URL(req.url, "http://x");
+    const hours = clampInt(u.searchParams.get("hours"), 1, 720, 72);
+    const bucket = clampInt(u.searchParams.get("bucket"), 1, 1440, 60);
+    const [series, triggers] = await Promise.all([
+      callRpc("affect_history_series",   { p_hours: hours, p_bucket_minutes: bucket }),
+      callRpc("affect_history_triggers", { p_hours: hours }),
+    ]);
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(JSON.stringify({ series, triggers }));
+  } catch (e) {
+    res.writeHead(502, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "affect_history failed", detail: String(e?.message || e) }));
+  }
+}
+
+function clampInt(raw, lo, hi, fallback) {
+  const n = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(lo, Math.min(hi, n));
+}
+
 async function proxyBelief(req, res) {
   // /belief/health and /belief/model → sidecar on 127.0.0.1:18790
   const sub = req.url.replace(/^\/belief/, "") || "/health";
@@ -1433,6 +1461,8 @@ const server = http.createServer((req, res) => {
     if (req.url.startsWith("/tinder/matches"))  return handleTinderMatches(req, res);
   }
   if (req.url === "/affect")                  return handleAffect(req, res);
+  if (req.url === "/affect/history" || req.url.startsWith("/affect/history?"))
+                                              return handleAffectHistory(req, res);
   if (req.url === "/skills")                  return handleSkills(req, res);
   if (req.url === "/causal")                  return handleCausal(req, res);
   if (req.url === "/motivation/stats")        return handleMotivationStats(req, res);
