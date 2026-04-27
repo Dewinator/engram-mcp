@@ -60,7 +60,10 @@ JSON-Objekt — kein Fließtext drum herum:
 Wenn kein echtes Muster erkennbar ist: confidence < 0.3 setzen.`;
 
 async function loadMembers(ids, { supabaseUrl, supabaseKey }) {
-  const fields = "id,summary,outcome,valence,what_worked,what_failed,difficulty,task_type,created_at";
+  // project_id is needed by the lesson-admission gate (see issue #80) so the
+  // caller can refuse mixed-project clusters before promotion. Cheap to
+  // include here — same row, same query.
+  const fields = "id,summary,outcome,valence,what_worked,what_failed,difficulty,task_type,created_at,project_id";
   const url    = `${supabaseUrl}/experiences?id=in.(${ids.join(",")})&select=${fields}`;
   const r = await fetch(url, {
     headers: {
@@ -173,7 +176,23 @@ export async function synthesizeCluster(cluster, { supabaseUrl, supabaseKey }) {
   const pattern_name = typeof out?.pattern_name === "string" ? out.pattern_name.trim() : "";
   const confidence   = Math.max(0, Math.min(1, Number(out?.confidence) || 0));
   const reinforce    = Boolean(out?.reinforce) && Boolean(cluster.matched_lesson_id);
-  return { lesson, pattern_name, confidence, reinforce, member_count: members.length };
+  // Project scope across cluster members — passed through so the caller can
+  // run gateLessonAdmission without re-fetching the rows. Mirrors
+  // clusterProjectScope() in mcp-server/src/services/admission-gate.ts but
+  // is inlined here to keep this script free of TS-build coupling for
+  // standalone dry runs (`node scripts/synthesize-cluster.mjs --dry`).
+  let project_consistent = true;
+  let project_id = members[0]?.project_id ?? null;
+  for (const m of members) {
+    const pid = m.project_id ?? null;
+    if (pid !== project_id) { project_consistent = false; project_id = null; break; }
+  }
+  return {
+    lesson, pattern_name, confidence, reinforce,
+    member_count: members.length,
+    project_consistent,
+    project_id,
+  };
 }
 
 // Standalone test: `node scripts/synthesize-cluster.mjs --dry`
