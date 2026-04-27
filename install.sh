@@ -8,6 +8,7 @@
 # Options:
 #   --yes               assume "yes" for all prompts (non-interactive)
 #   --no-autostart      do not register a launchd / systemd service
+#   --no-middleware     do not install the small-model middleware service
 #   --target DIR        install directory (default: ./mycelium)
 #   --branch BRANCH     git branch to check out (default: main)
 #   --skip-models       skip ollama model pulls
@@ -42,6 +43,7 @@ hint()   { printf "  ${C_DIM}%s${C_RESET}\n" "$*"; }
 # ─── defaults ────────────────────────────────────────────────────────────────
 ASSUME_YES=0
 NO_AUTOSTART=0
+NO_MIDDLEWARE=0
 SKIP_MODELS=0
 SKIP_DOCKER=0
 PRINT_ONLY=0
@@ -54,6 +56,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --yes)            ASSUME_YES=1 ;;
     --no-autostart)   NO_AUTOSTART=1 ;;
+    --no-middleware)  NO_MIDDLEWARE=1 ;;
     --skip-models)    SKIP_MODELS=1 ;;
     --skip-docker)    SKIP_DOCKER=1 ;;
     --print-only)     PRINT_ONLY=1 ;;
@@ -367,12 +370,99 @@ step_autostart() {
   fi
   if [[ "$PRINT_ONLY" -eq 1 ]]; then
     hint "would install $OS auto-start unit pointing at $TARGET_DIR/scripts/dashboard-server.mjs"
+    if [[ "$NO_MIDDLEWARE" -ne 1 ]]; then
+      hint "would also install $OS middleware unit on port 18794"
+    fi
     return 0
   fi
   case "$OS" in
     mac)   step_autostart_mac ;;
     linux) step_autostart_linux ;;
   esac
+  if [[ "$NO_MIDDLEWARE" -ne 1 ]]; then
+    case "$OS" in
+      mac)   step_middleware_mac ;;
+      linux) step_middleware_linux ;;
+    esac
+  else
+    info "skipping middleware service (--no-middleware)"
+  fi
+}
+
+step_middleware_mac() {
+  local plist_path="$HOME/Library/LaunchAgents/com.mycelium.middleware.plist"
+  local node_bin
+  node_bin="$(command -v node)"
+  if [[ -f "$plist_path" ]]; then
+    ok "middleware LaunchAgent already exists: $plist_path"
+    return 0
+  fi
+  info "writing middleware LaunchAgent → $plist_path"
+  mkdir -p "$(dirname "$plist_path")"
+  cat > "$plist_path" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.mycelium.middleware</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$node_bin</string>
+    <string>$TARGET_DIR/mcp-server/dist/middleware/proxy.js</string>
+  </array>
+  <key>WorkingDirectory</key><string>$TARGET_DIR</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OLLAMA_URL</key><string>http://127.0.0.1:11434</string>
+    <key>SUPABASE_URL</key><string>http://127.0.0.1:54321</string>
+    <key>MYCELIUM_PROXY_PORT</key><string>18794</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$TARGET_DIR/.logs/middleware.out.log</string>
+  <key>StandardErrorPath</key><string>$TARGET_DIR/.logs/middleware.err.log</string>
+</dict>
+</plist>
+PLIST
+  mkdir -p "$TARGET_DIR/.logs"
+  launchctl unload "$plist_path" 2>/dev/null || true
+  launchctl load "$plist_path"
+  ok "middleware service running on http://127.0.0.1:18794"
+  hint "tip: 'curl http://127.0.0.1:18794/health' to inspect; 'tail -f $TARGET_DIR/.logs/middleware.err.log' for logs."
+}
+
+step_middleware_linux() {
+  local unit_path="$HOME/.config/systemd/user/mycelium-middleware.service"
+  local node_bin
+  node_bin="$(command -v node)"
+  if [[ -f "$unit_path" ]]; then
+    ok "middleware systemd-user unit already exists: $unit_path"
+    return 0
+  fi
+  info "writing middleware systemd-user unit → $unit_path"
+  mkdir -p "$(dirname "$unit_path")"
+  cat > "$unit_path" <<UNIT
+[Unit]
+Description=mycelium middleware (small-model proxy on 18794)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$TARGET_DIR
+Environment=OLLAMA_URL=http://127.0.0.1:11434
+Environment=SUPABASE_URL=http://127.0.0.1:54321
+Environment=MYCELIUM_PROXY_PORT=18794
+ExecStart=$node_bin $TARGET_DIR/mcp-server/dist/middleware/proxy.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+UNIT
+  systemctl --user daemon-reload
+  systemctl --user enable --now mycelium-middleware.service
+  ok "middleware service running on http://127.0.0.1:18794"
+  hint "tip: 'systemctl --user status mycelium-middleware' to inspect."
 }
 
 step_final() {

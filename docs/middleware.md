@@ -86,6 +86,23 @@ schema?*
 
 ## Running
 
+### Easiest — via `install.sh` (registers a service)
+
+```bash
+curl -sSf https://raw.githubusercontent.com/Dewinator/mycelium/main/install.sh | bash
+```
+
+The installer brings up Docker + the dashboard, then registers a second
+launchd / systemd-user unit (`com.mycelium.middleware` on macOS,
+`mycelium-middleware.service` on Linux) that runs the proxy on port 18794
+and restarts on crash. Pass `--no-middleware` to skip.
+
+The unit reads its config from `docker/.env` automatically — the operator
+only ever has to put `JWT_SECRET` there (which `setup.sh` already does for
+the dashboard). The proxy mints its own service-role JWT on boot.
+
+### Manual
+
 The middleware reuses the MCP-server build artifact:
 
 ```bash
@@ -93,6 +110,13 @@ cd mycelium
 npm --prefix mcp-server install
 npm --prefix mcp-server run build
 
+# All env vars are optional — proxy bootstraps from docker/.env
+node mcp-server/dist/middleware/proxy.js
+```
+
+Override anything explicitly when needed:
+
+```bash
 SUPABASE_URL=http://localhost:54321 \
 SUPABASE_KEY=<service-role-jwt> \
 OLLAMA_URL=http://localhost:11434 \

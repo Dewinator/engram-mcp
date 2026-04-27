@@ -30,11 +30,57 @@
  */
 
 import http from "node:http";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
 import { PrimeFetcher } from "./prime-fetcher.js";
 import { Absorber } from "./absorber.js";
 import { SessionTracker } from "./session-tracker.js";
 import { Digester } from "./digester.js";
 import { injectContext, lastUserText, type ChatMessage } from "./inject.js";
+
+// ---------------------------------------------------------------------------
+// docker/.env bootstrap — same pattern as scripts/dashboard-server.mjs.
+// Lets the middleware run as a LaunchAgent / systemd unit without requiring
+// the operator to copy the service-role JWT into a plist.
+// process.env still wins over .env values when both are present.
+// ---------------------------------------------------------------------------
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT      = path.resolve(__dirname, "..", "..", "..");
+const ENV_FILE  = path.join(ROOT, "docker", ".env");
+
+async function loadDotenv(filePath: string): Promise<Record<string, string>> {
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    const out: Record<string, string> = {};
+    for (const line of raw.split(/\r?\n/)) {
+      const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+      if (m) out[m[1]] = m[2];
+    }
+    return out;
+  } catch { return {}; }
+}
+
+function b64url(buf: Buffer | string): string {
+  return Buffer.from(buf).toString("base64")
+    .replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+/** Mint a service-role JWT from JWT_SECRET, mirroring dashboard-server.mjs. */
+function signServiceRoleJwt(secret: string): string {
+  const header  = { alg: "HS256", typ: "JWT" };
+  const payload = { role: "service_role", iss: "supabase", iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60 };
+  const h = b64url(JSON.stringify(header));
+  const p = b64url(JSON.stringify(payload));
+  const sig = crypto.createHmac("sha256", secret).update(`${h}.${p}`).digest();
+  return `${h}.${p}.${b64url(sig)}`;
+}
+
+const dotenv = await loadDotenv(ENV_FILE);
+function envOr(name: string, fallback?: string): string | undefined {
+  return process.env[name] ?? dotenv[name] ?? fallback;
+}
 
 interface OllamaChatRequest {
   model:    string;
@@ -47,22 +93,35 @@ interface OllamaChatRequest {
   tools?:   unknown[];
 }
 
-const PROXY_PORT      = Number(process.env.MYCELIUM_PROXY_PORT ?? 18794);
-const OLLAMA_URL      = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
-const SUPABASE_URL    = process.env.SUPABASE_URL;
-const SUPABASE_KEY    = process.env.SUPABASE_KEY ?? process.env.SUPABASE_ANON_KEY;
-const RECALL_LIMIT    = Number(process.env.MYCELIUM_PROXY_RECALL_LIMIT ?? 5);
+const PROXY_PORT   = Number(envOr("MYCELIUM_PROXY_PORT", "18794"));
+const OLLAMA_URL   = envOr("OLLAMA_URL", "http://127.0.0.1:11434")!;
+const RECALL_LIMIT = Number(envOr("MYCELIUM_PROXY_RECALL_LIMIT", "5"));
 
+// SUPABASE_URL is straightforward; SUPABASE_KEY can come from three places
+// in priority order: explicit env, explicit dotenv, or self-minted from
+// JWT_SECRET (the LaunchAgent path — operator only has to put JWT_SECRET in
+// docker/.env, which is already there for the dashboard).
+const SUPABASE_URL = envOr("SUPABASE_URL", "http://127.0.0.1:54321")!;
+let SUPABASE_KEY = envOr("SUPABASE_KEY") ?? envOr("SUPABASE_ANON_KEY");
+if (!SUPABASE_KEY) {
+  const secret = envOr("JWT_SECRET");
+  if (secret) {
+    SUPABASE_KEY = signServiceRoleJwt(secret);
+    console.error("[middleware] minted SUPABASE_KEY from JWT_SECRET in docker/.env");
+  }
+}
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("[middleware] FATAL: SUPABASE_URL and SUPABASE_KEY must be set");
+  console.error("[middleware] FATAL: SUPABASE_URL + SUPABASE_KEY (or JWT_SECRET) must be set in env or docker/.env");
   process.exit(1);
 }
+
+const EMBED_MODEL = envOr("EMBEDDING_MODEL", "nomic-embed-text")!;
 
 const fetcher = new PrimeFetcher({
   supabaseUrl:    SUPABASE_URL,
   supabaseKey:    SUPABASE_KEY,
   ollamaUrl:      OLLAMA_URL,
-  embeddingModel: process.env.EMBEDDING_MODEL ?? "nomic-embed-text",
+  embeddingModel: EMBED_MODEL,
   recallLimit:    RECALL_LIMIT,
 });
 
@@ -70,27 +129,27 @@ const fetcher = new PrimeFetcher({
 // Set MYCELIUM_PROXY_AUTO_ABSORB=0 to disable. Default ON because the
 // whole point of the small-model epic is to capture learning the user
 // would otherwise have to enter manually with `remember`.
-const AUTO_ABSORB_ON = (process.env.MYCELIUM_PROXY_AUTO_ABSORB ?? "1") !== "0";
+const AUTO_ABSORB_ON = (envOr("MYCELIUM_PROXY_AUTO_ABSORB", "1") ?? "1") !== "0";
 const absorber = AUTO_ABSORB_ON ? new Absorber({
   supabaseUrl:    SUPABASE_URL,
   supabaseKey:    SUPABASE_KEY,
   ollamaUrl:      OLLAMA_URL,
-  embeddingModel: process.env.EMBEDDING_MODEL ?? "nomic-embed-text",
+  embeddingModel: EMBED_MODEL,
 }) : null;
 
 // Auto-Digest (#4 + N9 spec). Per-session state, idle-30min trigger.
 // MYCELIUM_PROXY_AUTO_DIGEST=0 disables; default on. Tick frequency
 // configurable via MYCELIUM_PROXY_DIGEST_TICK_MS (default 60s).
-const AUTO_DIGEST_ON = (process.env.MYCELIUM_PROXY_AUTO_DIGEST ?? "1") !== "0";
-const IDLE_MS    = Number(process.env.MYCELIUM_PROXY_IDLE_MS    ?? 30 * 60 * 1_000);
-const TICK_MS    = Number(process.env.MYCELIUM_PROXY_DIGEST_TICK_MS ?? 60_000);
+const AUTO_DIGEST_ON = (envOr("MYCELIUM_PROXY_AUTO_DIGEST", "1") ?? "1") !== "0";
+const IDLE_MS    = Number(envOr("MYCELIUM_PROXY_IDLE_MS",         String(30 * 60 * 1_000)));
+const TICK_MS    = Number(envOr("MYCELIUM_PROXY_DIGEST_TICK_MS",  String(60_000)));
 
 const tracker = new SessionTracker({ idleMs: IDLE_MS });
 const digester = AUTO_DIGEST_ON ? new Digester(tracker, {
   supabaseUrl:    SUPABASE_URL,
   supabaseKey:    SUPABASE_KEY,
   ollamaUrl:      OLLAMA_URL,
-  embeddingModel: process.env.EMBEDDING_MODEL ?? "nomic-embed-text",
+  embeddingModel: EMBED_MODEL,
   tickMs:         TICK_MS,
 }) : null;
 digester?.start();
