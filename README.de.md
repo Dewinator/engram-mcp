@@ -302,9 +302,20 @@ Danach: `launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.ollama`
 
 ---
 
-## Roadmap — Small-Model-Middleware
+## Small-Model-Middleware
 
-Der `core`-Filter ist der **erste Schritt**. Die vollständige Vision ist eine Middleware, die Tools komplett vor dem LLM verbirgt — `prime_context` wird deterministisch ins System-Prompt injiziert, das Modell muss nicht "entscheiden, ob es das Tool nutzt". Verfolgbar in den GitHub-Issues unter dem Label [`small-model`](../../issues?q=label%3Asmall-model).
+Die Zwei-Profil-Config oben ist der **erste Schritt**. Die Middleware ist der eigentliche Hebel: ein Reverse-Proxy, der `/api/chat` abfängt, `prime_context_compact` deterministisch in den System-Prompt injiziert, lernrelevante Statements via Regex absorbiert und bei Idle eine Session-Digest feuert. Das Modell muss nicht mehr *entscheiden*, ob es ein Tool nutzt — es gibt im Wesentlichen keine Tools mehr zu nutzen.
+
+```bash
+SUPABASE_URL=http://localhost:54321 \
+SUPABASE_KEY=<service-role-jwt> \
+node mcp-server/dist/middleware/proxy.js
+# → http://127.0.0.1:18794   (Ollama-kompatibel /api/chat)
+```
+
+Verbinde deinen MCP-Client (oder einen direkten Ollama-Aufrufer) mit Port 18794 statt 11434 — gleiche Request-/Response-Form, plus Kontext-Injektion + Auto-Absorb + Auto-Digest.
+
+Vollständige Architektur, Env-Knöpfe, Observability-Surface, Failure-Modes: **[docs/middleware.md](docs/middleware.md)**. Issues unter dem Label [`small-model`](../../issues?q=label%3Asmall-model) zeigen die Entwicklung.
 
 **Ziel:** lokale Modelle sollen in ihrer Spezialisierung Cloud-Modellen nicht nachstehen, weil sie die gesamte persistente Identität / Affekt / Erinnerung ab Token 1 mitbekommen — während ein Cloud-Modell bei jeder Session blank startet.
 
