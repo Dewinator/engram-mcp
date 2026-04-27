@@ -23,6 +23,13 @@ automatisch und kann seine Werkzeuge (`remember`, `recall`, `prime_context`,
 > den absoluten Pfad zu deinem mycelium-Checkout — also den Ordner, in dem
 > `mcp-server/dist/index.js` liegt (z.B. `/Users/reed/mycelium`).
 
+> **Großes Modell + kleines lokales Modell parallel?** Trag zwei
+> mycelium-Einträge nebeneinander ein — `mycelium-full` (alle ~90 Tools)
+> für Claude/Codex und `mycelium-core` (6 Tools) für ein 7-8B-Modell wie
+> qwen3:8b. Beide Prozesse teilen sich denselben Backend, kein Konflikt.
+> Vollständiges Beispiel im README unter [„Betrieb auf schmaler
+> Hardware"](../README.de.md#betrieb-auf-schmaler-hardware-16-gb-ram).
+
 ---
 
 ## Claude Code

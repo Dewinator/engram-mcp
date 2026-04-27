@@ -397,6 +397,10 @@ step_final() {
          }
        }
 
+   Running a small local model alongside (qwen3:8b, gemma3:4b)? See README
+   §"Running on constrained hardware" for the two-profile pattern
+   (mycelium-full + mycelium-core side-by-side).
+
    Then restart your agent. ${C_GREEN}Done.${C_RESET}
 
 EOF
