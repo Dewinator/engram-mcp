@@ -31,6 +31,7 @@
 
 import http from "node:http";
 import { PrimeFetcher } from "./prime-fetcher.js";
+import { Absorber } from "./absorber.js";
 import { injectContext, lastUserText, type ChatMessage } from "./inject.js";
 
 interface OllamaChatRequest {
@@ -62,6 +63,18 @@ const fetcher = new PrimeFetcher({
   embeddingModel: process.env.EMBEDDING_MODEL ?? "nomic-embed-text",
   recallLimit:    RECALL_LIMIT,
 });
+
+// Auto-Absorb post-processor (#4 partial — N4-Auto-Absorb only).
+// Set MYCELIUM_PROXY_AUTO_ABSORB=0 to disable. Default ON because the
+// whole point of the small-model epic is to capture learning the user
+// would otherwise have to enter manually with `remember`.
+const AUTO_ABSORB_ON = (process.env.MYCELIUM_PROXY_AUTO_ABSORB ?? "1") !== "0";
+const absorber = AUTO_ABSORB_ON ? new Absorber({
+  supabaseUrl:    SUPABASE_URL,
+  supabaseKey:    SUPABASE_KEY,
+  ollamaUrl:      OLLAMA_URL,
+  embeddingModel: process.env.EMBEDDING_MODEL ?? "nomic-embed-text",
+}) : null;
 
 async function readBody(req: http.IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
@@ -132,12 +145,20 @@ async function handleChat(req: http.IncomingMessage, res: http.ServerResponse): 
     });
   }
 
-  // TODO(N4): hook point for auto-digest — record session activity here so
-  // the idle-timer can fire a record_experience downstream. Not active in
-  // Phase 1.
-
+  // N4 (Auto-Absorb): conservative regex extractor over user + assistant
+  // text. Best-effort, fired in the background — must not delay the
+  // response. Auto-Digest is a separate follow-up (needs N9's session
+  // boundary state machine).
   const ct = upstream.headers.get("content-type") ?? "application/json; charset=utf-8";
   const buf = Buffer.from(await upstream.arrayBuffer());
+
+  if (absorber) {
+    const assistantText = extractAssistantText(buf, ct);
+    void absorber.processTurn(taskText, assistantText)
+      .catch((e) => console.error("[middleware] auto-absorb threw:",
+        e instanceof Error ? e.message : String(e)));
+  }
+
   res.writeHead(upstream.status, {
     "Content-Type":              ct,
     "Content-Length":            String(buf.length),
@@ -166,6 +187,7 @@ async function handleHealth(_req: http.IncomingMessage, res: http.ServerResponse
     targets: { ollama: OLLAMA_URL, supabase: SUPABASE_URL },
     upstreams: Object.assign({}, ...checks),
     cache: fetcher.cacheStats(),
+    auto_absorb: absorber ? absorber.stats() : { enabled: false },
     phase: 1,
   });
 }
@@ -185,6 +207,23 @@ const server = http.createServer((req, res) => {
   res.writeHead(404, { "Content-Type": "text/plain" });
   res.end("not found");
 });
+
+/**
+ * Pull the assistant message text out of an Ollama /api/chat response. The
+ * shape is {message: {role, content}, ...}. Returns undefined when the body
+ * isn't JSON or doesn't carry the field — auto-absorb then runs on user
+ * text only.
+ */
+function extractAssistantText(buf: Buffer, contentType: string): string | undefined {
+  if (!contentType.includes("application/json")) return undefined;
+  try {
+    const j = JSON.parse(buf.toString("utf8")) as { message?: { role?: string; content?: string } };
+    if (j.message?.role === "assistant" && typeof j.message.content === "string") {
+      return j.message.content;
+    }
+  } catch { /* best-effort */ }
+  return undefined;
+}
 
 async function passThrough(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const upstreamUrl = new URL(req.url ?? "/", OLLAMA_URL);
