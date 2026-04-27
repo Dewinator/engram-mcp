@@ -32,6 +32,8 @@
 import http from "node:http";
 import { PrimeFetcher } from "./prime-fetcher.js";
 import { Absorber } from "./absorber.js";
+import { SessionTracker } from "./session-tracker.js";
+import { Digester } from "./digester.js";
 import { injectContext, lastUserText, type ChatMessage } from "./inject.js";
 
 interface OllamaChatRequest {
@@ -76,6 +78,23 @@ const absorber = AUTO_ABSORB_ON ? new Absorber({
   embeddingModel: process.env.EMBEDDING_MODEL ?? "nomic-embed-text",
 }) : null;
 
+// Auto-Digest (#4 + N9 spec). Per-session state, idle-30min trigger.
+// MYCELIUM_PROXY_AUTO_DIGEST=0 disables; default on. Tick frequency
+// configurable via MYCELIUM_PROXY_DIGEST_TICK_MS (default 60s).
+const AUTO_DIGEST_ON = (process.env.MYCELIUM_PROXY_AUTO_DIGEST ?? "1") !== "0";
+const IDLE_MS    = Number(process.env.MYCELIUM_PROXY_IDLE_MS    ?? 30 * 60 * 1_000);
+const TICK_MS    = Number(process.env.MYCELIUM_PROXY_DIGEST_TICK_MS ?? 60_000);
+
+const tracker = new SessionTracker({ idleMs: IDLE_MS });
+const digester = AUTO_DIGEST_ON ? new Digester(tracker, {
+  supabaseUrl:    SUPABASE_URL,
+  supabaseKey:    SUPABASE_KEY,
+  ollamaUrl:      OLLAMA_URL,
+  embeddingModel: process.env.EMBEDDING_MODEL ?? "nomic-embed-text",
+  tickMs:         TICK_MS,
+}) : null;
+digester?.start();
+
 async function readBody(req: http.IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
@@ -118,6 +137,19 @@ async function handleChat(req: http.IncomingMessage, res: http.ServerResponse): 
   const taskType = (req.headers["x-mycelium-task-type"] as string | undefined)?.trim() || undefined;
 
   const taskText = lastUserText(parsed.messages);
+
+  // N4 Auto-Digest — touch session BEFORE fetch so a session is tracked
+  // even when the prime fetcher fails or the upstream is dead.
+  const clientKey = SessionTracker.buildKey(
+    req.socket.remoteAddress,
+    req.headers["user-agent"] as string | undefined,
+  );
+  tracker.touch({
+    client_key:   clientKey,
+    model:        parsed.model,
+    user_present: Boolean(taskText),
+  });
+
   // Diff cache hit count before/after to detect whether THIS call landed in
   // the cache. Cheaper than threading an "isHit" flag through the fetcher.
   const cacheBefore = fetcher.cacheStats()?.hits ?? 0;
@@ -147,10 +179,16 @@ async function handleChat(req: http.IncomingMessage, res: http.ServerResponse): 
 
   // N4 (Auto-Absorb): conservative regex extractor over user + assistant
   // text. Best-effort, fired in the background — must not delay the
-  // response. Auto-Digest is a separate follow-up (needs N9's session
-  // boundary state machine).
+  // response.
   const ct = upstream.headers.get("content-type") ?? "application/json; charset=utf-8";
   const buf = Buffer.from(await upstream.arrayBuffer());
+
+  // Update session state with the upstream outcome.
+  tracker.touch({
+    client_key:   clientKey,
+    model:        parsed.model,
+    upstream_ok:  upstream.status >= 200 && upstream.status < 300,
+  });
 
   if (absorber) {
     const assistantText = extractAssistantText(buf, ct);
@@ -188,6 +226,13 @@ async function handleHealth(_req: http.IncomingMessage, res: http.ServerResponse
     upstreams: Object.assign({}, ...checks),
     cache: fetcher.cacheStats(),
     auto_absorb: absorber ? absorber.stats() : { enabled: false },
+    auto_digest: digester ? {
+      enabled:  true,
+      idle_ms:  IDLE_MS,
+      tick_ms:  TICK_MS,
+      sessions: tracker.size(),
+      ...digester.stats(),
+    } : { enabled: false },
     phase: 1,
   });
 }
@@ -253,5 +298,5 @@ server.listen(PROXY_PORT, "127.0.0.1", () => {
   console.error(`  → health check: curl http://127.0.0.1:${PROXY_PORT}/health`);
 });
 
-process.on("SIGTERM", () => { server.close(() => process.exit(0)); });
-process.on("SIGINT",  () => { server.close(() => process.exit(0)); });
+process.on("SIGTERM", () => { digester?.stop(); server.close(() => process.exit(0)); });
+process.on("SIGINT",  () => { digester?.stop(); server.close(() => process.exit(0)); });
