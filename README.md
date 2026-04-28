@@ -337,6 +337,24 @@ Full architecture, configuration knobs, observability surface, and failure modes
 
 ---
 
+## Swarm endpoints
+
+When the dashboard server is running, mycelium exposes a discovery endpoint
+that lets a peer verify this node's identity without any prior trust:
+
+| Endpoint | Spec | Purpose |
+|---|---|---|
+| `GET /.well-known/mycelium-node` | [SWARM_SPEC §4.1](docs/SWARM_SPEC.md) | Returns this node's self-signed `NodeAdvertisement`. Unauthenticated and idempotent. |
+
+Two environment variables control the response:
+
+- **`MYCELIUM_PUBLIC_URL`** *(required for swarm participation)* — the absolute `https://` URL where this node's swarm endpoints are reachable from peers (not localhost). Goes into the advertisement's `endpoint_url`. If unset, the endpoint returns **503**; the rest of mycelium is unaffected.
+- **`MYCELIUM_DISPLAY_NAME`** *(optional, ≤ 64 characters)* — a human-friendly label for the node, surfaced as the advertisement's `display_name`. Names longer than the spec cap are rejected up front rather than published.
+
+The signing key (`MYCELIUM_NODE_KEY`, default `~/.mycelium/node.key`) is bootstrapped by `scripts/init-node-identity.mjs` and never leaves the host. The endpoint refuses to mint a key on the fly: a missing self-row surfaces as **503**, never as a silent re-bootstrap.
+
+---
+
 ## Roadmap
 
 mycelium = **one simulated brain** (memory, neurochemistry, sleep, motivation, curiosity, forgetting, deepening, emergence). Multiple brains = multiple mycelium instances chosen by the user. Phases:

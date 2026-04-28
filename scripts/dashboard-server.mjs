@@ -39,6 +39,15 @@ const FED_DIST   = path.join(ROOT, "mcp-server", "dist", "services");
 const { FederationService } = await import(path.join(FED_DIST, "federation.js"));
 const { GuardService: FedGuardService } = await import(path.join(FED_DIST, "guard.js"));
 
+// Swarm Phase 3c (issue #87): /.well-known/mycelium-node handler + node
+// identity adapter both live in the compiled MCP server tree so they share
+// signing primitives with the rest of the swarm code path.
+const { NodeIdentityService } = await import(path.join(FED_DIST, "node-identity.js"));
+const SWARM_ENDPOINTS_DIST = path.join(ROOT, "mcp-server", "dist", "swarm", "endpoints");
+const { buildNodeAdvertisementResponse } = await import(
+  path.join(SWARM_ENDPOINTS_DIST, "node-advertisement.js")
+);
+
 // --- load JWT_SECRET from docker/.env so we can mint a service_role JWT ---
 async function loadEnv() {
   try {
@@ -1446,11 +1455,31 @@ async function handleTeacherEscalationResolve(req, res, escId) {
   res.end(JSON.stringify(data));
 }
 
+// --- Swarm Phase 3c: GET /.well-known/mycelium-node ----------------------
+// Serves the local node's self-signed NodeAdvertisement (SWARM_SPEC §3.3 +
+// §4.1). Unauthenticated and idempotent on purpose — discovery starts here.
+// Lazy NodeIdentityService init: a stale process_env update from a restart
+// would otherwise be ignored.
+const nodeIdentityService = new NodeIdentityService(UPSTREAM, SERVICE_JWT);
+async function handleNodeAdvertisement(_req, res) {
+  const result = await buildNodeAdvertisementResponse({
+    loadSelf: () => nodeIdentityService.getSelf(),
+    publicUrl: process.env.MYCELIUM_PUBLIC_URL || env.MYCELIUM_PUBLIC_URL,
+    displayName:
+      process.env.MYCELIUM_DISPLAY_NAME || env.MYCELIUM_DISPLAY_NAME || null,
+  });
+  res.writeHead(result.status, result.headers);
+  res.end(result.body);
+}
+
 const server = http.createServer((req, res) => {
   // Tiny access log.
   const t = new Date().toISOString();
   res.on("finish", () => console.log(`${t} ${req.socket.remoteAddress} ${req.method} ${req.url} -> ${res.statusCode}`));
 
+  // Swarm discovery — must precede the static fall-through so the
+  // .well-known path doesn't get rewritten as a file lookup.
+  if (req.url === "/.well-known/mycelium-node") return handleNodeAdvertisement(req, res);
   if (req.url.startsWith("/api/"))            return proxyApi(req, res);
   if (req.url.startsWith("/belief"))          return proxyBelief(req, res);
   if (req.url.startsWith("/guard"))           return proxyGuard(req, res);
