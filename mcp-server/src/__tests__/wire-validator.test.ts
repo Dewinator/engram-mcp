@@ -1,0 +1,419 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { generateKeyPairSync } from "node:crypto";
+
+import {
+  validateWireRecord,
+  type ValidationResult,
+} from "../services/wire-validator.js";
+import { sign } from "../services/signature.js";
+import { computeNodeId } from "../services/node-identity.js";
+import { WIRE_SPEC_VERSION } from "../services/wire-types.js";
+
+// ---------------------------------------------------------------------------
+// Test fixtures
+//
+// Every negative test starts from a fully-valid record and breaks ONE
+// invariant. That keeps the assertion surface clean: if a test fails on
+// rule N but really tripped over rule M, the helper would mask it; we
+// build up the valid baseline once and mutate from there.
+// ---------------------------------------------------------------------------
+
+interface Identity {
+  pem: string;
+  pubkeyRaw: Uint8Array;
+  nodeId: string;
+}
+
+function freshIdentity(): Identity {
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const spki = publicKey.export({ type: "spki", format: "der" });
+  // Last 32 bytes of the SPKI DER encoding are the raw Ed25519 pubkey.
+  const pubkeyRaw = new Uint8Array(spki.subarray(spki.length - 32));
+  const pem = privateKey.export({ type: "pkcs8", format: "pem" }) as string;
+  const nodeId = computeNodeId(Buffer.from(pubkeyRaw));
+  return { pem, pubkeyRaw, nodeId };
+}
+
+function full768Embedding(seed = 0): number[] {
+  const out = new Array(768);
+  for (let i = 0; i < 768; i++) out[i] = (seed + i) / 1000;
+  return out;
+}
+
+// Anchor "now" so rule 7/8 windows are deterministic.
+const FIXED_NOW = new Date("2026-04-28T12:00:00.000Z");
+
+function makePubkeyResolver(known: Map<string, Uint8Array>) {
+  return (nodeId: string): Uint8Array | null => known.get(nodeId) ?? null;
+}
+
+function attachSignature(
+  record: Record<string, unknown>,
+  pem: string
+): Record<string, unknown> {
+  return { ...record, signature: sign(record, pem) };
+}
+
+// ---------------------------------------------------------------------------
+// Valid examples — one per kind
+// ---------------------------------------------------------------------------
+
+function buildValidLesson(producer: Identity): Record<string, unknown> {
+  const unsigned = {
+    id: "11111111-2222-3333-4444-555555555555",
+    content: "Lessons must be generalized before they leave a node.",
+    embedding: full768Embedding(),
+    synthesized_from_cluster_size: 4,
+    origin_node_id: producer.nodeId,
+    signed_at: "2026-04-28T11:00:00.000Z",
+    created_at: "2026-04-27T10:00:00.000Z",
+    tags: ["test", "swarm"],
+    spec_version: WIRE_SPEC_VERSION,
+  };
+  return attachSignature(unsigned, producer.pem);
+}
+
+function buildValidHubAnchor(producer: Identity): Record<string, unknown> {
+  const unsigned = {
+    embedding: full768Embedding(7),
+    hub_score: 0.82,
+    local_memory_count: 17,
+    topic_label: "test-cluster",
+    origin_node_id: producer.nodeId,
+    signed_at: "2026-04-28T11:00:00.000Z",
+    spec_version: WIRE_SPEC_VERSION,
+  };
+  return attachSignature(unsigned, producer.pem);
+}
+
+function buildValidAdvertisement(self: Identity): Record<string, unknown> {
+  // Pubkey on the wire is unpadded base64url per SWARM_SPEC §3.3.
+  const pubkeyB64Url = Buffer.from(self.pubkeyRaw).toString("base64url");
+  const unsigned = {
+    node_id: self.nodeId,
+    pubkey: pubkeyB64Url,
+    display_name: "test-node",
+    endpoint_url: "https://node.example.com",
+    spec_version: WIRE_SPEC_VERSION,
+    signed_at: "2026-04-28T11:00:00.000Z",
+  };
+  return attachSignature(unsigned, self.pem);
+}
+
+function expectErr(result: ValidationResult, rule: number): void {
+  assert.equal(result.ok, false, `expected rejection on rule ${rule}, got ok=true`);
+  if (result.ok) return; // narrowing
+  assert.equal(
+    result.rule,
+    rule,
+    `expected rule ${rule}, got rule ${result.rule} (reason: ${result.reason})`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Happy paths
+// ---------------------------------------------------------------------------
+
+test("valid Lesson is accepted", async () => {
+  const producer = freshIdentity();
+  const record = buildValidLesson(producer);
+  const result = await validateWireRecord(record, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  assert.equal(result.ok, true);
+});
+
+test("valid HubAnchor is accepted", async () => {
+  const producer = freshIdentity();
+  const record = buildValidHubAnchor(producer);
+  const result = await validateWireRecord(record, "hub_anchor", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  assert.equal(result.ok, true);
+});
+
+test("valid NodeAdvertisement is accepted (self-signed)", async () => {
+  const self = freshIdentity();
+  const record = buildValidAdvertisement(self);
+  const result = await validateWireRecord(record, "node_advertisement", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    // Self-signed: getPubkeyForNode is not consulted; resolver returns null.
+    getPubkeyForNode: () => null,
+  });
+  assert.equal(result.ok, true);
+});
+
+// ---------------------------------------------------------------------------
+// Negative cases — one per rule (1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13)
+// ---------------------------------------------------------------------------
+
+test("rule 1: spec_version major mismatch is rejected", async () => {
+  const producer = freshIdentity();
+  const valid = buildValidLesson(producer);
+  // Re-sign with the wrong spec_version so rule 5 wouldn't also fire.
+  const { signature: _omit, ...unsigned } = valid;
+  const tampered = attachSignature(
+    { ...unsigned, spec_version: "2.0" },
+    producer.pem
+  );
+  const result = await validateWireRecord(tampered, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 1);
+});
+
+test("rule 2: missing required field is rejected", async () => {
+  const producer = freshIdentity();
+  const record = buildValidLesson(producer) as Record<string, unknown>;
+  delete record.content;
+  const result = await validateWireRecord(record, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 2);
+});
+
+test("rule 3: type mismatch on a typed field is rejected", async () => {
+  const producer = freshIdentity();
+  const record = buildValidLesson(producer);
+  // synthesized_from_cluster_size is typed as number; flip to string.
+  const broken = { ...record, synthesized_from_cluster_size: "four" };
+  const result = await validateWireRecord(broken, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 3);
+});
+
+test("rule 4: embedding wrong length is rejected", async () => {
+  const producer = freshIdentity();
+  const valid = buildValidLesson(producer);
+  const { signature: _omit, ...unsigned } = valid;
+  const broken = attachSignature(
+    { ...unsigned, embedding: [0.1, 0.2, 0.3] },
+    producer.pem
+  );
+  const result = await validateWireRecord(broken, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 4);
+});
+
+test("rule 4: embedding containing non-finite is rejected", async () => {
+  const producer = freshIdentity();
+  const valid = buildValidLesson(producer);
+  const { signature: _omit, embedding: _e, ...rest } = valid;
+  const emb = full768Embedding();
+  emb[42] = Number.NaN;
+  // We cannot re-sign a record with NaN inside (canonicalize refuses);
+  // attach a placeholder signature that the validator will never reach.
+  const broken = { ...rest, embedding: emb, signature: "AAAA" };
+  const result = await validateWireRecord(broken, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 4);
+});
+
+test("rule 5: bad signature is rejected (content mutated post-sign)", async () => {
+  const producer = freshIdentity();
+  const valid = buildValidLesson(producer);
+  // Mutate content AFTER signing so JCS-recompute produces different bytes.
+  const tampered = { ...valid, content: "Mutated after signing." };
+  const result = await validateWireRecord(tampered, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 5);
+});
+
+test("rule 6: NodeAdvertisement node_id != multihash(pubkey) is rejected", async () => {
+  const self = freshIdentity();
+  const other = freshIdentity();
+  const valid = buildValidAdvertisement(self);
+  const { signature: _omit, ...unsigned } = valid;
+  // Substitute a foreign node_id and re-sign with self's key — rule 5 still
+  // verifies (self signed it) but rule 6 must trip first.
+  const broken = attachSignature(
+    { ...unsigned, node_id: other.nodeId },
+    self.pem
+  );
+  const result = await validateWireRecord(broken, "node_advertisement", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: () => null,
+  });
+  expectErr(result, 6);
+});
+
+test("rule 7: signed_at more than 5 minutes in the future is rejected", async () => {
+  const producer = freshIdentity();
+  const valid = buildValidLesson(producer);
+  const { signature: _omit, ...unsigned } = valid;
+  // FIXED_NOW + 1 hour — well past the 5-min skew tolerance.
+  const broken = attachSignature(
+    { ...unsigned, signed_at: "2026-04-28T13:00:00.000Z" },
+    producer.pem
+  );
+  const result = await validateWireRecord(broken, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 7);
+});
+
+test("rule 8: Lesson signed_at older than 90 days is rejected", async () => {
+  const producer = freshIdentity();
+  const valid = buildValidLesson(producer);
+  const { signature: _omit, ...unsigned } = valid;
+  // 100 days before FIXED_NOW. created_at must precede signed_at (rule 9),
+  // so push it earlier too.
+  const broken = attachSignature(
+    {
+      ...unsigned,
+      signed_at: "2026-01-18T12:00:00.000Z",
+      created_at: "2026-01-17T12:00:00.000Z",
+    },
+    producer.pem
+  );
+  const result = await validateWireRecord(broken, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 8);
+});
+
+test("rule 9: Lesson signed_at < created_at is rejected", async () => {
+  const producer = freshIdentity();
+  const valid = buildValidLesson(producer);
+  const { signature: _omit, ...unsigned } = valid;
+  const broken = attachSignature(
+    {
+      ...unsigned,
+      signed_at: "2026-04-28T10:00:00.000Z",
+      created_at: "2026-04-28T11:00:00.000Z",
+    },
+    producer.pem
+  );
+  const result = await validateWireRecord(broken, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 9);
+});
+
+test("rule 11: Lesson synthesized_from_cluster_size < 2 is rejected", async () => {
+  const producer = freshIdentity();
+  const valid = buildValidLesson(producer);
+  const { signature: _omit, ...unsigned } = valid;
+  const broken = attachSignature(
+    { ...unsigned, synthesized_from_cluster_size: 1 },
+    producer.pem
+  );
+  const result = await validateWireRecord(broken, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 11);
+});
+
+test("rule 12: Lesson.content over 8 KiB is rejected", async () => {
+  const producer = freshIdentity();
+  const valid = buildValidLesson(producer);
+  const { signature: _omit, ...unsigned } = valid;
+  const broken = attachSignature(
+    { ...unsigned, content: "A".repeat(8 * 1024 + 1) },
+    producer.pem
+  );
+  const result = await validateWireRecord(broken, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: makePubkeyResolver(
+      new Map([[producer.nodeId, producer.pubkeyRaw]])
+    ),
+  });
+  expectErr(result, 12);
+});
+
+test("rule 13: NodeAdvertisement endpoint_url not https is rejected", async () => {
+  const self = freshIdentity();
+  const valid = buildValidAdvertisement(self);
+  const { signature: _omit, ...unsigned } = valid;
+  const broken = attachSignature(
+    { ...unsigned, endpoint_url: "http://node.example.com" },
+    self.pem
+  );
+  const result = await validateWireRecord(broken, "node_advertisement", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: () => null,
+  });
+  expectErr(result, 13);
+});
+
+// ---------------------------------------------------------------------------
+// Defensive extras (not required by the issue, cheap to keep)
+// ---------------------------------------------------------------------------
+
+test("non-object input is rejected (no exception thrown)", async () => {
+  const result = await validateWireRecord("not a record" as unknown, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    getPubkeyForNode: () => null,
+  });
+  assert.equal(result.ok, false);
+});
+
+test("rule 5: unknown origin_node_id (no pubkey resolver hit) is rejected", async () => {
+  const producer = freshIdentity();
+  const record = buildValidLesson(producer);
+  const result = await validateWireRecord(record, "lesson", {
+    ourSpecMajor: 1,
+    now: FIXED_NOW,
+    // Resolver knows nobody — a swarm without trust state for this node.
+    getPubkeyForNode: () => null,
+  });
+  expectErr(result, 5);
+});
